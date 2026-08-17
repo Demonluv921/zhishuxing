@@ -39,6 +39,12 @@ const Store = {
   ai: {
     getKey() { return localStorage.getItem('zxs_ds_key') || ''; },
     setKey(key) { localStorage.setItem('zxs_ds_key', (key || '').trim()); }
+  },
+
+  cloud: {
+    // 当前账号的云 token(注册时分配,用于访问云端数据)
+    getToken() { return localStorage.getItem('zxs_cloud_token') || ''; },
+    setToken(t) { if (t) localStorage.setItem('zxs_cloud_token', t); else localStorage.removeItem('zxs_cloud_token'); }
   }
 };
 

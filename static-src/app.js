@@ -10,6 +10,7 @@ function init() {
   state.courses = buildCourses(SEED);
   state.user = Store.session.get();
   state.aiStatus.configured = DeepSeekClient.isConfigured();
+  state.cloudEnabled = supabaseConfigured();
   if (state.user) showApp(); else showLogin();
 }
 
@@ -81,10 +82,20 @@ async function doLogin() {
   const password = document.getElementById('login-password').value;
   const err = document.getElementById('login-error');
   err.style.display = 'none';
-  const user = Store.users.find(account);
+  let user = Store.users.find(account);
+  if (!user && supabaseConfigured()) {
+    // 云端查账号(任意电脑可登录)
+    const cloudUser = await Cloud.findUser(account);
+    if (cloudUser) {
+      user = { id: cloudUser.id, name: cloudUser.name, account: cloudUser.account, salt: cloudUser.salt, passHash: cloudUser.pass_hash, cloudToken: cloudUser.token };
+      Store.users.add(user);
+    }
+  }
   if (!user) { err.textContent = '账号不存在,请先注册'; err.style.display = 'block'; return; }
   const hash = await hashPassword(password, user.salt);
   if (hash !== user.passHash) { err.textContent = '密码错误'; err.style.display = 'block'; return; }
+  if (user.cloudToken) Store.cloud.setToken(user.cloudToken);
+  await syncAfterLogin(user);
   state.user = user;
   Store.session.set({ id: user.id, name: user.name, account: user.account });
   showApp();
@@ -98,9 +109,18 @@ async function doRegister() {
   err.style.display = 'none';
   if (!name || !account || password.length < 6) { err.textContent = '请填写完整信息,密码至少 6 位'; err.style.display = 'block'; return; }
   if (Store.users.find(account)) { err.textContent = '该账号已注册'; err.style.display = 'block'; return; }
+  if (supabaseConfigured() && await Cloud.findUser(account)) { err.textContent = '该账号已在云端注册'; err.style.display = 'block'; return; }
   const salt = randomSalt();
-  const user = { id: Date.now() % 1000000000, name, account, salt, passHash: await hashPassword(password, salt) };
+  const cloudToken = supabaseConfigured() ? randomSalt() + randomSalt() : '';
+  const user = { id: Date.now() % 1000000000, name, account, salt, passHash: await hashPassword(password, salt), cloudToken };
   Store.users.add(user);
+  if (supabaseConfigured()) {
+    await Cloud.createUser({ account, name, salt, passHash: user.passHash, token: cloudToken });
+    Store.cloud.setToken(cloudToken);
+    // 首次注册:把已有本地数据同步上云
+    const local = Store.userData.read(user.id);
+    await Cloud.saveUserData(cloudToken, local);
+  }
   state.user = user;
   Store.session.set({ id: user.id, name: user.name, account: user.account });
   toast('注册成功,欢迎使用智刷星!', 'success');
@@ -125,6 +145,7 @@ function showApp() {
       </nav>
       <div class="sidebar-footer">
         <div class="user-chip"><div class="avatar" id="user-avatar">学</div><div class="user-meta"><div id="user-name">同学</div><div>本机账号</div></div></div>
+        <div class="cloud-badge" id="cloud-badge"></div>
         <button class="btn btn-ghost btn-sm full" id="settings-btn">⚙️ AI 设置</button>
         <button class="btn btn-ghost btn-sm full" id="logout-btn">退出登录</button>
       </div>
@@ -140,6 +161,7 @@ function showApp() {
   document.getElementById('user-avatar').textContent = state.user.name.slice(0, 1);
   document.getElementById('logout-btn').onclick = () => { Store.session.clear(); location.hash = ''; showLogin(); };
   document.getElementById('settings-btn').onclick = openSettings;
+  renderCloudBadge();
   refreshAiBadge();
   if (!location.hash) location.hash = '#/dashboard';
   route();
@@ -235,6 +257,53 @@ function userData() {
 
 function saveUserData(data) {
   Store.userData.save(state.user.id, data);
+  scheduleCloudSync(data);
+}
+
+// 云端自动同步:防抖 800ms,登录时也拉取合并
+let cloudSyncTimer = null;
+function scheduleCloudSync(data) {
+  const token = Store.cloud.getToken();
+  if (!supabaseConfigured() || !token) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(async () => {
+    try {
+      await Cloud.saveUserData(token, data);
+      renderCloudBadge('synced');
+    } catch (e) {
+      renderCloudBadge('error');
+    }
+  }, 800);
+}
+
+async function syncAfterLogin(user) {
+  const token = user.cloudToken || Store.cloud.getToken();
+  if (!supabaseConfigured() || !token) return;
+  renderCloudBadge('syncing');
+  try {
+    const cloudData = await Cloud.getUserData(token);
+    const merged = Cloud.mergeLocalCloud(Store.userData.read(user.id), cloudData);
+    Store.userData.save(user.id, merged);
+    if (cloudData) await Cloud.saveUserData(token, merged);
+    renderCloudBadge('synced');
+  } catch (e) {
+    renderCloudBadge('error');
+  }
+}
+
+function renderCloudBadge(status) {
+  const el = document.getElementById('cloud-badge');
+  if (!el) return;
+  if (!supabaseConfigured()) {
+    el.className = 'cloud-badge off';
+    el.innerHTML = '☁️ 未连接云端(仅本机)';
+    return;
+  }
+  if (status === 'syncing') { el.className = 'cloud-badge'; el.innerHTML = '☁️ 同步中…'; return; }
+  if (status === 'error') { el.className = 'cloud-badge error'; el.innerHTML = '☁️ 同步失败(重试中)'; return; }
+  if (status === 'synced') { el.className = 'cloud-badge'; el.innerHTML = '☁️ 已云同步'; return; }
+  el.className = 'cloud-badge';
+  el.innerHTML = Store.cloud.getToken() ? '☁️ 云同步已开启' : '☁️ 云端就绪';
 }
 
 /* ================= 学习台 ================= */

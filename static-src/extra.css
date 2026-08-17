@@ -20,3 +20,10 @@
 .tabs button.active { color: var(--ink); border-bottom-color: var(--ink); }
 .login-tip { margin-top: 18px; font-size: 11px; color: var(--muted); text-align: center; line-height: 1.7; }
 .error-text { color: var(--red); font-size: 12.5px; margin-top: 8px; display: none; }
+.cloud-badge {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; color: #666; padding: 4px 8px; margin: 0 8px;
+  background: var(--gray-soft); border-radius: 999px;
+}
+.cloud-badge.off { color: var(--muted); background: transparent; }
+.cloud-badge.error { color: var(--red); background: var(--red-soft); }

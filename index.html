@@ -374,6 +374,13 @@ button { font-family: inherit; }
 .tabs button.active { color: var(--ink); border-bottom-color: var(--ink); }
 .login-tip { margin-top: 18px; font-size: 11px; color: var(--muted); text-align: center; line-height: 1.7; }
 .error-text { color: var(--red); font-size: 12.5px; margin-top: 8px; display: none; }
+.cloud-badge {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; color: #666; padding: 4px 8px; margin: 0 8px;
+  background: var(--gray-soft); border-radius: 999px;
+}
+.cloud-badge.off { color: var(--muted); background: transparent; }
+.cloud-badge.error { color: var(--red); background: var(--red-soft); }
 </style>
 </head>
 <body>
@@ -1172,6 +1179,115 @@ button { font-family: inherit; }
   }
 ];</script>
   <script>
+  // ===== Supabase 云同步配置(由构建时注入 JSON 字面量) =====
+// 未配置时网站以纯本地模式运行,所有功能照常可用
+const SUPABASE_CONFIG = {
+  url: "https://wipkcxtkkslgltbzvfoy.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpcGtjeHRra3NsZ2x0Ynp2Zm95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY5ODM4MzEsImV4cCI6MjEwMjU1OTgzMX0.uaG37LHYMkWk7koQOJrLp9mRnF_siPb_9yuVRCCYOxk"
+};
+
+function supabaseConfigured() {
+  return Boolean(SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey);
+}
+
+  // ===== Supabase 云同步:账号与学习数据云端存储 =====
+// 设计:注册时分配随机 token;所有 REST 请求统一用 anon key 认证,
+//       用户 token 作为查询条件(token=eq.<token>)定位本人数据行。
+//       建表时 RLS 为宽松策略(演示用),账号隔离靠 token 查询过滤。
+
+const Cloud = {
+  _headers() {
+    return {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_CONFIG.anonKey,
+      'Authorization': 'Bearer ' + SUPABASE_CONFIG.anonKey,
+      'Prefer': 'return=representation'
+    };
+  },
+
+  async _request(path, { method = 'GET', body } = {}) {
+    if (!supabaseConfigured()) throw new Error('云端未配置');
+    const resp = await fetch(SUPABASE_CONFIG.url + path, {
+      method,
+      headers: this._headers(),
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!resp.ok) {
+      let msg = '云端请求失败(' + resp.status + ')';
+      try { const d = await resp.json(); msg = d.message || d.error?.message || msg; } catch {}
+      throw new Error(msg);
+    }
+    if (resp.status === 204) return null;
+    return resp.json();
+  },
+
+  // ---- 账号 ----
+  async findUser(account) {
+    const rows = await this._request('/rest/v1/users?account=eq.' + encodeURIComponent(account) + '&select=*&limit=1');
+    return rows && rows.length ? rows[0] : null;
+  },
+
+  async createUser({ account, name, salt, passHash, token }) {
+    const row = { account, name, salt, pass_hash: passHash, token };
+    const res = await this._request('/rest/v1/users', { method: 'POST', body: row });
+    return Array.isArray(res) ? res[0] : res;
+  },
+
+  // ---- 学习数据 ----
+  async getUserData(token) {
+    const rows = await this._request(
+      '/rest/v1/user_data?select=*&token=eq.' + encodeURIComponent(token) + '&limit=1'
+    );
+    return rows && rows.length ? rows[0] : null;
+  },
+
+  async saveUserData(token, data) {
+    const existing = await this.getUserData(token);
+    const payload = {
+      token,
+      data: data,
+      updated_at: new Date().toISOString()
+    };
+    if (existing) {
+      await this._request('/rest/v1/user_data?token=eq.' + encodeURIComponent(token), {
+        method: 'PATCH', body: payload
+      });
+    } else {
+      await this._request('/rest/v1/user_data', { method: 'POST', body: payload });
+    }
+  },
+
+  // ---- 数据合并(本地与云端取较新/较全) ----
+  mergeLocalCloud(local, cloud) {
+    const empty = { diagnostics: [], results: [], practice: [], ai: [] };
+    const a = local && typeof local === 'object' ? local : { ...empty };
+    const b = cloud && cloud.data && typeof cloud.data === 'object' ? cloud.data : { ...empty };
+    for (const k of Object.keys(empty)) {
+      a[k] = a[k] || [];
+      b[k] = b[k] || [];
+    }
+    const mergeArr = (x, y) => {
+      const map = new Map();
+      [...x, ...y].forEach(item => {
+        const id = item && item.id != null ? item.id : null;
+        if (id != null) {
+          const prev = map.get(id);
+          if (!prev || (item.updatedAt || item.createdAt || 0) > (prev.updatedAt || prev.createdAt || 0)) map.set(id, item);
+        } else if (id == null) {
+          map.set(map.size + '_' + Math.random().toString(36).slice(2, 8), item);
+        }
+      });
+      return Array.from(map.values());
+    };
+    return {
+      diagnostics: mergeArr(a.diagnostics, b.diagnostics),
+      results: mergeArr(a.results, b.results),
+      practice: mergeArr(a.practice, b.practice),
+      ai: mergeArr(a.ai, b.ai)
+    };
+  }
+};
+
   // ===== 本地存储层(localStorage):用户 / 学习数据 / AI 配置 =====
 const Store = {
   _read(key, fallback) {
@@ -1213,6 +1329,12 @@ const Store = {
   ai: {
     getKey() { return localStorage.getItem('zxs_ds_key') || ''; },
     setKey(key) { localStorage.setItem('zxs_ds_key', (key || '').trim()); }
+  },
+
+  cloud: {
+    // 当前账号的云 token(注册时分配,用于访问云端数据)
+    getToken() { return localStorage.getItem('zxs_cloud_token') || ''; },
+    setToken(t) { if (t) localStorage.setItem('zxs_cloud_token', t); else localStorage.removeItem('zxs_cloud_token'); }
   }
 };
 
@@ -1523,6 +1645,7 @@ function init() {
   state.courses = buildCourses(SEED);
   state.user = Store.session.get();
   state.aiStatus.configured = DeepSeekClient.isConfigured();
+  state.cloudEnabled = supabaseConfigured();
   if (state.user) showApp(); else showLogin();
 }
 
@@ -1594,10 +1717,20 @@ async function doLogin() {
   const password = document.getElementById('login-password').value;
   const err = document.getElementById('login-error');
   err.style.display = 'none';
-  const user = Store.users.find(account);
+  let user = Store.users.find(account);
+  if (!user && supabaseConfigured()) {
+    // 云端查账号(任意电脑可登录)
+    const cloudUser = await Cloud.findUser(account);
+    if (cloudUser) {
+      user = { id: cloudUser.id, name: cloudUser.name, account: cloudUser.account, salt: cloudUser.salt, passHash: cloudUser.pass_hash, cloudToken: cloudUser.token };
+      Store.users.add(user);
+    }
+  }
   if (!user) { err.textContent = '账号不存在,请先注册'; err.style.display = 'block'; return; }
   const hash = await hashPassword(password, user.salt);
   if (hash !== user.passHash) { err.textContent = '密码错误'; err.style.display = 'block'; return; }
+  if (user.cloudToken) Store.cloud.setToken(user.cloudToken);
+  await syncAfterLogin(user);
   state.user = user;
   Store.session.set({ id: user.id, name: user.name, account: user.account });
   showApp();
@@ -1611,9 +1744,18 @@ async function doRegister() {
   err.style.display = 'none';
   if (!name || !account || password.length < 6) { err.textContent = '请填写完整信息,密码至少 6 位'; err.style.display = 'block'; return; }
   if (Store.users.find(account)) { err.textContent = '该账号已注册'; err.style.display = 'block'; return; }
+  if (supabaseConfigured() && await Cloud.findUser(account)) { err.textContent = '该账号已在云端注册'; err.style.display = 'block'; return; }
   const salt = randomSalt();
-  const user = { id: Date.now() % 1000000000, name, account, salt, passHash: await hashPassword(password, salt) };
+  const cloudToken = supabaseConfigured() ? randomSalt() + randomSalt() : '';
+  const user = { id: Date.now() % 1000000000, name, account, salt, passHash: await hashPassword(password, salt), cloudToken };
   Store.users.add(user);
+  if (supabaseConfigured()) {
+    await Cloud.createUser({ account, name, salt, passHash: user.passHash, token: cloudToken });
+    Store.cloud.setToken(cloudToken);
+    // 首次注册:把已有本地数据同步上云
+    const local = Store.userData.read(user.id);
+    await Cloud.saveUserData(cloudToken, local);
+  }
   state.user = user;
   Store.session.set({ id: user.id, name: user.name, account: user.account });
   toast('注册成功,欢迎使用智刷星!', 'success');
@@ -1638,6 +1780,7 @@ function showApp() {
       </nav>
       <div class="sidebar-footer">
         <div class="user-chip"><div class="avatar" id="user-avatar">学</div><div class="user-meta"><div id="user-name">同学</div><div>本机账号</div></div></div>
+        <div class="cloud-badge" id="cloud-badge"></div>
         <button class="btn btn-ghost btn-sm full" id="settings-btn">⚙️ AI 设置</button>
         <button class="btn btn-ghost btn-sm full" id="logout-btn">退出登录</button>
       </div>
@@ -1653,6 +1796,7 @@ function showApp() {
   document.getElementById('user-avatar').textContent = state.user.name.slice(0, 1);
   document.getElementById('logout-btn').onclick = () => { Store.session.clear(); location.hash = ''; showLogin(); };
   document.getElementById('settings-btn').onclick = openSettings;
+  renderCloudBadge();
   refreshAiBadge();
   if (!location.hash) location.hash = '#/dashboard';
   route();
@@ -1748,6 +1892,53 @@ function userData() {
 
 function saveUserData(data) {
   Store.userData.save(state.user.id, data);
+  scheduleCloudSync(data);
+}
+
+// 云端自动同步:防抖 800ms,登录时也拉取合并
+let cloudSyncTimer = null;
+function scheduleCloudSync(data) {
+  const token = Store.cloud.getToken();
+  if (!supabaseConfigured() || !token) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(async () => {
+    try {
+      await Cloud.saveUserData(token, data);
+      renderCloudBadge('synced');
+    } catch (e) {
+      renderCloudBadge('error');
+    }
+  }, 800);
+}
+
+async function syncAfterLogin(user) {
+  const token = user.cloudToken || Store.cloud.getToken();
+  if (!supabaseConfigured() || !token) return;
+  renderCloudBadge('syncing');
+  try {
+    const cloudData = await Cloud.getUserData(token);
+    const merged = Cloud.mergeLocalCloud(Store.userData.read(user.id), cloudData);
+    Store.userData.save(user.id, merged);
+    if (cloudData) await Cloud.saveUserData(token, merged);
+    renderCloudBadge('synced');
+  } catch (e) {
+    renderCloudBadge('error');
+  }
+}
+
+function renderCloudBadge(status) {
+  const el = document.getElementById('cloud-badge');
+  if (!el) return;
+  if (!supabaseConfigured()) {
+    el.className = 'cloud-badge off';
+    el.innerHTML = '☁️ 未连接云端(仅本机)';
+    return;
+  }
+  if (status === 'syncing') { el.className = 'cloud-badge'; el.innerHTML = '☁️ 同步中…'; return; }
+  if (status === 'error') { el.className = 'cloud-badge error'; el.innerHTML = '☁️ 同步失败(重试中)'; return; }
+  if (status === 'synced') { el.className = 'cloud-badge'; el.innerHTML = '☁️ 已云同步'; return; }
+  el.className = 'cloud-badge';
+  el.innerHTML = Store.cloud.getToken() ? '☁️ 云同步已开启' : '☁️ 云端就绪';
 }
 
 /* ================= 学习台 ================= */

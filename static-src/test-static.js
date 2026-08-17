@@ -4,8 +4,23 @@ const vm = require('vm');
 const path = require('path');
 const webcrypto = require('crypto').webcrypto;
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'site', 'index.html'), 'utf8');
-const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+const src = __dirname;
+const root = path.join(src, '..');
+const seed = JSON.parse(fs.readFileSync(path.join(root, 'src', 'seed-data.json'), 'utf8'));
+const css = fs.readFileSync(path.join(root, 'public', 'css', 'style.css'), 'utf8');
+const modules = {
+  supabase: fs.readFileSync(path.join(src, 'supabase-config.js'), 'utf8')
+    .replace('__SUPABASE_URL__', JSON.stringify('https://fake.supabase.co'))
+    .replace('__SUPABASE_ANON__', JSON.stringify('fake-anon-key')),
+  cloud: fs.readFileSync(path.join(src, 'cloud-sync.js'), 'utf8'),
+  storage: fs.readFileSync(path.join(src, 'storage.js'), 'utf8'),
+  diagnosis: fs.readFileSync(path.join(src, 'diagnosis.js'), 'utf8'),
+  deepseek: fs.readFileSync(path.join(src, 'deepseek-client.js'), 'utf8'),
+  graph: fs.readFileSync(path.join(src, 'graph.js'), 'utf8'),
+  app: fs.readFileSync(path.join(src, 'app.js'), 'utf8')
+};
+const scriptSource = modules.supabase + '\n' + modules.cloud + '\n' + modules.storage + '\n'
+  + modules.diagnosis + '\n' + modules.deepseek + '\n' + modules.graph + '\n' + modules.app;
 
 function makeEl() {
   const el = {
@@ -38,7 +53,7 @@ const storage = {};
 const sandbox = {
   document: documentMock,
   window: { addEventListener() {}, location: { hash: '' } },
-  __SEED_COURSES__: JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'src', 'seed-data.json'), 'utf8')),
+  __SEED_COURSES__: seed,
   localStorage: {
     getItem: k => (k in storage ? storage[k] : null),
     setItem: (k, v) => { storage[k] = String(v); },
@@ -46,12 +61,27 @@ const sandbox = {
   },
   console, setTimeout, URLSearchParams, Date, Math, JSON, String, Number, Array, Object, Promise,
   TextEncoder, crypto: webcrypto, encodeURIComponent, decodeURIComponent, isNaN,
-  fetch: async () => { throw new Error('no network'); },
+  fetch: async (url, opts) => {
+    const u = String(url);
+    if (u.includes('/rest/v1/users')) {
+      if ((opts.method || 'GET') === 'GET') {
+        return { ok: true, status: 200, json: async () => [{ id: 1, account: 'cloudtest', name: '云测试', salt: 's', pass_hash: 'h', token: 'tok-abc' }] };
+      }
+      return { ok: true, status: 201, json: async () => [{ account: 'cloudtest' }] };
+    }
+    if (u.includes('/rest/v1/user_data')) {
+      if ((opts.method || 'GET') === 'GET') {
+        if (!u.includes('token=eq.')) throw new Error('user_data GET 必须带 token 过滤: ' + u);
+        return { ok: true, status: 200, json: async () => [{ token: 'tok-abc', data: { results: [{ id: 99, courseId: 1 }], practice: [], diagnostics: [], ai: [] } }] };
+      }
+      return { ok: true, status: 204, json: async () => null };
+    }
+    throw new Error('unexpected fetch: ' + u);
+  },
   __TEST_RESULT__: null
 };
 vm.createContext(sandbox);
-vm.runInContext(scripts[0], sandbox);
-vm.runInContext(scripts[1], sandbox);
+vm.runInContext(scriptSource, sandbox);
 console.log('has STATE:', sandbox.window.__STATE__ != null);
 vm.runInContext('window.__STATE__.courses = buildCourses(SEED);', sandbox);
 
@@ -110,6 +140,32 @@ const ok = sandbox.__TEST_RESULT__.courses === 3
   && sandbox.__TEST_RESULT__.pickedCount === 10
   && sandbox.__TEST_RESULT__.fallbackCount === 3
   && sandbox.__TEST_RESULT__.tutorFallback;
-console.log(ok ? '✅ ALL STATIC TESTS PASSED' : '❌ TESTS FAILED');
-process.exit(ok ? 0 : 1);
+const cloudTest = `
+(async () => {
+  const configured = supabaseConfigured();
+  const user = await Cloud.findUser('cloudtest');
+  const token = user.token;
+  const data = await Cloud.getUserData(token);
+  const merged = Cloud.mergeLocalCloud(
+    { results: [{ id: 1, courseId: 1, updatedAt: 2 }], practice: [], diagnostics: [], ai: [] },
+    data
+  );
+  __TEST_RESULT__.cloud = {
+    configured,
+    userFound: user && user.account === 'cloudtest',
+    dataLoaded: data && data.token === 'tok-abc',
+    mergedCount: merged.results.length
+  };
+})();
+`;
+vm.runInContext(cloudTest, sandbox);
+setTimeout(() => {
+  console.log(JSON.stringify(sandbox.__TEST_RESULT__.cloud, null, 2));
+  const cloudOk = sandbox.__TEST_RESULT__.cloud.configured
+    && sandbox.__TEST_RESULT__.cloud.userFound
+    && sandbox.__TEST_RESULT__.cloud.dataLoaded
+    && sandbox.__TEST_RESULT__.cloud.mergedCount === 2;
+  console.log(ok && cloudOk ? '✅ ALL TESTS PASSED (含云同步)' : '❌ TESTS FAILED');
+  process.exit(ok && cloudOk ? 0 : 1);
+}, 300);
 }, 200);
