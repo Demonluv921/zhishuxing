@@ -9,9 +9,12 @@ window.addEventListener('hashchange', route);
 function init() {
   state.courses = buildCourses(SEED);
   state.user = Store.session.get();
-  state.aiStatus.configured = DeepSeekClient.isConfigured();
   state.cloudEnabled = supabaseConfigured();
-  if (state.user) showApp(); else showLogin();
+  const finish = () => {
+    state.aiStatus.configured = DeepSeekClient.isConfigured();
+    if (state.user) showApp(); else showLogin();
+  };
+  Promise.resolve(DeepSeekClient.loadSharedKey()).then(finish).catch(finish);
 }
 
 // 把 seed 数据(知识点名/题)转为带 id 的结构
@@ -173,17 +176,22 @@ function refreshAiBadge() {
   state.aiStatus.configured = DeepSeekClient.isConfigured();
   badge.className = 'ai-badge' + (state.aiStatus.configured ? '' : ' off');
   badge.innerHTML = state.aiStatus.configured
-    ? '<span class="dot"></span> DeepSeek 已接入'
+    ? (Store.ai.getKey()
+      ? '<span class="dot"></span> DeepSeek 已接入'
+      : '<span class="dot"></span> 团队共享 AI 已开启')
     : '<span class="dot"></span> AI 未配置(内置题库模式)';
 }
 
 function openSettings() {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
+  const sharedDesc = (DeepSeekClient.getKey() && !Store.ai.getKey())
+    ? '<p class="modal-desc">当前为<b>团队共享模式</b>:所有访客直接使用团队配置的 DeepSeek Key,无需自行设置。填入自己的 Key 后将优先使用个人 Key。</p>'
+    : '<p class="modal-desc">在 <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">platform.deepseek.com</a> 注册并创建 API Key。Key 仅保存在<b>本机浏览器</b>,直接调用 DeepSeek 官方接口,不经过任何中间服务器。</p>';
   overlay.innerHTML = `
     <div class="modal">
       <h3>⚙️ AI 设置(DeepSeek)</h3>
-      <p class="modal-desc">在 <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">platform.deepseek.com</a> 注册并创建 API Key。Key 仅保存在<b>本机浏览器</b>,直接调用 DeepSeek 官方接口,不经过任何中间服务器。</p>
+      ${sharedDesc}
       <div class="field"><label>DeepSeek API Key</label><input class="input" id="ds-key" type="password" placeholder="sk-..."></div>
       <div class="field"><label>模型</label><select class="select" id="ds-model"><option value="deepseek-chat">deepseek-chat(推荐)</option><option value="deepseek-reasoner">deepseek-reasoner(R1 深度思考)</option></select></div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -600,7 +608,7 @@ function renderAiPage(view) {
   const preCourse = Number(params.get('course') || 0);
   const preKp = Number(params.get('kp') || 0);
   view.innerHTML = `
-    <div class="ai-intro"><h3>🤖 DeepSeek 大模型实时出题</h3><p>选择课程、难度与数量,AI 依据课程大纲与薄弱知识点即时生成带详细解析的原创题目。首次使用请先在左下角"AI 设置"填入 API Key。</p></div>
+    <div class="ai-intro"><h3>🤖 DeepSeek 大模型实时出题</h3><p>选择课程、难度与数量,AI 依据课程大纲与薄弱知识点即时生成带详细解析的原创题目。若提示未配置 Key,请在左下角"AI 设置"中填写。</p></div>
     <div class="card" style="margin-bottom:18px">
       <div class="grid grid-4">
         <div class="field"><label>课程</label><select class="select" id="ai-course">${state.courses.map(c => `<option value="${c.id}" ${c.id === preCourse ? 'selected' : ''}>${c.icon} ${esc(c.name)}</option>`).join('')}</select></div>
@@ -779,8 +787,8 @@ function renderAbout(view) {
       <div class="grid grid-2">
         <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🎯 项目初衷</div><p style="font-size:13px;color:var(--muted)">理工科专业课复习时"题目匮乏、缺乏针对性、遇到难题无人讲解",我们希望用 AI 打造每位同学专属的学习伙伴。</p></div>
         <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🧠 核心机制</div><p style="font-size:13px;color:var(--muted)">知识图谱诊断薄弱点 → 个性化复习路径 → 专项刷题 → AI 苏格拉底式讲题,形成"诊断-练习-理解"闭环。</p></div>
-        <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🤖 AI 能力</div><p style="font-size:13px;color:var(--muted)">AI 出题、苏格拉底式讲题、考前模拟卷均由 DeepSeek 大模型实时生成,需在"AI 设置"中配置 API Key。</p></div>
-        <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🔒 隐私说明</div><p style="font-size:13px;color:var(--muted)">纯静态站点,无服务器、无数据库:学习数据与 API Key 仅保存在你的浏览器中。</p></div>
+        <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🤖 AI 能力</div><p style="font-size:13px;color:var(--muted)">AI 出题、苏格拉底式讲题、考前模拟卷均由 DeepSeek 大模型实时生成;团队共享模式下免配置,也可在"AI 设置"中填入个人 Key。</p></div>
+        <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🔒 隐私说明</div><p style="font-size:13px;color:var(--muted)">学习数据默认保存在浏览器本地,启用云同步后可跨设备共享;AI 请求直接发送至 DeepSeek 官方接口。</p></div>
       </div>
     </div>`;
 }

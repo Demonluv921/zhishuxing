@@ -37,15 +37,31 @@ git push origin main
 
 3. 等待 1-2 分钟,访问 `https://<用户名>.github.io/<仓库>/` 即可看到更新。
 
-## 配置 DeepSeek API Key(AI 出题必做)
+## DeepSeek AI 接入(两种模式)
 
-网站是纯静态的,**无法在服务端保存密钥**,采用"个人配置"方案:
+网站是纯静态的,**无法在服务端保存密钥**,支持两种模式:
+
+### 模式一:个人 Key(默认)
 
 1. 打开网站,点击左下角 **⚙️ AI 设置**
 2. 前往 [DeepSeek 开放平台](https://platform.deepseek.com/) 注册并创建 API Key
-3. 填入 Key 并保存 —— Key 仅保存在**你自己的浏览器**(localStorage),AI 请求直接发给 DeepSeek 官方接口,不经过任何中间服务器
+3. 填入 Key 并保存 —— Key 仅保存在**本机浏览器**(localStorage),AI 请求直接发给 DeepSeek 官方接口
 
-> 每个访问者需要各自配置 Key。如果希望访问者**免配置直接用 AI**,可把团队共享 Key 发布到网站上(Key 会出现在网页源码,可能被滥用,不推荐),或改用带后端的部署(见下文"本地服务版")。
+### 模式二:团队共享 Key(所有账号免配置直接用 AI)
+
+密钥存放在 Supabase 的 `app_config` 表中(项目根目录 `supabase-config.json` 指向的数据库),网站启动时自动读取,不出现在网页源码和 Git 仓库中。
+
+启用/更新共享 Key(需 Supabase 管理令牌):
+
+```sql
+-- 在 Supabase SQL Editor 中执行(把 sk-xxx 换成你的 Key)
+INSERT INTO public.app_config (key, value) VALUES ('deepseek_shared_key', 'sk-xxx')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
+```
+
+所有访问者无需任何设置即可使用 AI 出题/讲题/模拟卷;个人仍可在"AI 设置"中填入自己的 Key 覆盖共享 Key。演示结束后,清空该行或到 DeepSeek 平台轮换 Key 即可。
+
+> ⚠️ 重要风险(演示级共享):Supabase 的 anon key 在网页源码中公开,`app_config` 表对匿名只读开放,技术用户仍可通过 REST 接口读到共享 Key。仅适合短期演示;想要真正安全的共享,需要服务端代理(见下文"本地服务版")。
 
 ## 云端同步(Supabase A 方案)
 

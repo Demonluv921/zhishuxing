@@ -1,13 +1,32 @@
 // ===== DeepSeek 大模型客户端(浏览器直连,官方 API 支持 CORS) =====
+// 团队共享 Key 存放在 Supabase app_config 表,启动时异步加载;个人在"AI 设置"里填的 Key 优先
+let DEEPSEEK_SHARED_KEY = '';
 const DeepSeekClient = {
   BASE: 'https://api.deepseek.com',
 
-  getKey() { return Store.ai.getKey(); },
+  getKey() { return Store.ai.getKey() || DEEPSEEK_SHARED_KEY; },
   isConfigured() { return Boolean(this.getKey()); },
+
+  // 启动时从 Supabase 读取团队共享 Key(加载失败则退回个人 Key 模式)
+  async loadSharedKey() {
+    if (!supabaseConfigured() || Store.ai.getKey()) return;
+    try {
+      const resp = await fetch(SUPABASE_CONFIG.url + '/rest/v1/app_config?key=eq.deepseek_shared_key&select=value&limit=1', {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.anonKey,
+          'Authorization': 'Bearer ' + SUPABASE_CONFIG.anonKey
+        }
+      });
+      if (!resp.ok) return;
+      const rows = await resp.json();
+      if (rows && rows.length) DEEPSEEK_SHARED_KEY = rows[0].value || '';
+    } catch (e) { /* 保持空,走个人 Key / 内置题库 */ }
+  },
 
   async chat(systemPrompt, userPrompt, { temperature = 0.8, maxTokens = 4096 } = {}) {
     const key = this.getKey();
-    if (!key) throw new Error('未配置 DeepSeek API Key,请在右上角"设置"中填写');
+    if (!key) throw new Error('未配置 DeepSeek API Key:团队共享未开启,请在"AI 设置"中填写个人 Key');
     const resp = await fetch(this.BASE + '/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },

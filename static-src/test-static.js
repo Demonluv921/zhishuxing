@@ -76,6 +76,23 @@ const sandbox = {
       }
       return { ok: true, status: 204, json: async () => null };
     }
+    if (u.includes('/rest/v1/app_config')) {
+      return { ok: true, status: 200, json: async () => [{ key: 'deepseek_shared_key', value: 'sk-test-shared' }] };
+    }
+    if (u.includes('/chat/completions')) {
+      const auth = opts.headers && opts.headers['Authorization'];
+      if (auth !== 'Bearer sk-test-shared') throw new Error('AI 请求未使用团队共享 Key');
+      const body = JSON.parse(opts.body);
+      const isQuestion = (body.messages[0].content || '').includes('出题专家');
+      const content = isQuestion
+        ? JSON.stringify({ questions: [
+            { stem: '测试题1', options: ['A', 'B', 'C', 'D'], correctIndex: 1, explanation: '解析1', kpName: '知识点', difficulty: 'easy' },
+            { stem: '测试题2', options: ['A', 'B', 'C', 'D'], correctIndex: 0, explanation: '解析2', kpName: '知识点', difficulty: 'medium' },
+            { stem: '测试题3', options: ['A', 'B', 'C', 'D'], correctIndex: 2, explanation: '解析3', kpName: '知识点', difficulty: 'hard' }
+          ] })
+        : '模拟讲题回复';
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content } }] }) };
+    }
     throw new Error('unexpected fetch: ' + u);
   },
   __TEST_RESULT__: null
@@ -93,6 +110,7 @@ appState.courses = built;
 const course = appState.courses[0];
 const answers = course.questions.slice(0, 10).map((q, i) => ({ questionId: q.id, kpIds: q.kpIds, correct: i % 2 === 0 }));
 const r = diagnoseAnswers(course, {}, answers);
+await DeepSeekClient.loadSharedKey();
 const fb = await DeepSeekClient.generateQuestions({ courseName: course.name, kpName: '随机事件与古典概型', difficulty: 'medium', count: 3 });
 const t = await DeepSeekClient.tutor({ courseName: course.name, question: 'test', history: [] });
 // 诊断抽题逻辑
@@ -129,7 +147,8 @@ __TEST_RESULT__ = {
   coveredKps: covered.size,
   fallbackCount: fb.length,
   fallbackOptions: fb[0].options.length,
-  tutorFallback: t.includes('未配置')
+  tutorReply: t.includes('模拟讲题回复'),
+  sharedKeyUsed: DeepSeekClient.getKey() === 'sk-test-shared'
 };
 })();
 `;
@@ -139,7 +158,9 @@ console.log(JSON.stringify(sandbox.__TEST_RESULT__, null, 2));
 const ok = sandbox.__TEST_RESULT__.courses === 3
   && sandbox.__TEST_RESULT__.pickedCount === 10
   && sandbox.__TEST_RESULT__.fallbackCount === 3
-  && sandbox.__TEST_RESULT__.tutorFallback;
+  && sandbox.__TEST_RESULT__.fallbackOptions === 4
+  && sandbox.__TEST_RESULT__.tutorReply
+  && sandbox.__TEST_RESULT__.sharedKeyUsed;
 const cloudTest = `
 (async () => {
   const configured = supabaseConfigured();
