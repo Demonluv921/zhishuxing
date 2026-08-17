@@ -1,0 +1,2254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智刷星 · AI 专业课智能刷题平台</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
+  <meta name="description" content="智刷星 - 基于 DeepSeek 大模型的 AI 专业课智能刷题平台,知识图谱诊断薄弱点、个性化复习路径、苏格拉底式讲题">
+  <style>:root {
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --ink: #1e2433;
+  --muted: #6b7280;
+  --line: #e5e9f2;
+  --brand: #4f46e5;
+  --brand-dark: #4338ca;
+  --brand-soft: #eef2ff;
+  --green: #059669;
+  --green-soft: #ecfdf5;
+  --amber: #d97706;
+  --amber-soft: #fffbeb;
+  --red: #dc2626;
+  --red-soft: #fef2f2;
+  --gray: #9ca3af;
+  --gray-soft: #f3f4f6;
+  --radius: 14px;
+  --shadow: 0 1px 3px rgba(16, 24, 40, .06), 0 8px 24px -12px rgba(16, 24, 40, .12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.hidden { display: none !important; }
+a { color: var(--brand); text-decoration: none; }
+button { font-family: inherit; }
+
+/* ---------- 布局 ---------- */
+#app-root { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 232px;
+  flex-shrink: 0;
+  background: #161a2e;
+  color: #cbd2e9;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; border-bottom: 1px solid rgba(255,255,255,.08); }
+.brand-icon { font-size: 26px; }
+.brand-name { font-size: 19px; font-weight: 700; color: #fff; letter-spacing: 1px; }
+.brand-sub { font-size: 11px; color: #8b93b8; }
+.nav { flex: 1; margin-top: 16px; display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  color: #cbd2e9; font-size: 14px;
+  transition: background .15s, color .15s;
+}
+.nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+.nav-item.active { background: var(--brand); color: #fff; font-weight: 600; }
+.sidebar-footer { border-top: 1px solid rgba(255,255,255,.08); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.user-chip { display: flex; align-items: center; gap: 10px; padding: 4px 8px; }
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; flex-shrink: 0;
+}
+.user-meta { overflow: hidden; }
+.user-meta div:first-child { font-size: 13px; color: #fff; font-weight: 600; white-space: nowrap; }
+.user-meta div:last-child { font-size: 11px; color: #8b93b8; white-space: nowrap; }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 32px 12px;
+}
+.topbar h1 { font-size: 22px; font-weight: 700; }
+.topbar p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.ai-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--brand-soft); color: var(--brand-dark);
+  font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+}
+.ai-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; }
+.ai-badge.off { background: var(--gray-soft); color: var(--muted); }
+.ai-badge.off .dot { background: #d1d5db; }
+
+.view { padding: 12px 32px 48px; }
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 22px;
+}
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1100px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } .grid-3 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 720px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } .sidebar { display: none; } .view, .topbar { padding-left: 16px; padding-right: 16px; } }
+
+.stat-card { display: flex; align-items: center; gap: 14px; }
+.stat-icon {
+  width: 46px; height: 46px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  flex-shrink: 0;
+}
+.stat-value { font-size: 24px; font-weight: 800; line-height: 1.2; }
+.stat-label { font-size: 12px; color: var(--muted); }
+
+.course-card {
+  cursor: pointer; transition: transform .15s, box-shadow .15s;
+  position: relative; overflow: hidden;
+}
+.course-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px -12px rgba(16,24,40,.25); }
+.course-card .course-icon { font-size: 34px; }
+.course-card h3 { font-size: 17px; margin: 10px 0 4px; }
+.course-card p { font-size: 12.5px; color: var(--muted); min-height: 40px; }
+.course-meta { display: flex; gap: 12px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.course-meta span { background: var(--gray-soft); padding: 3px 10px; border-radius: 999px; }
+
+.section-title { font-size: 16px; font-weight: 700; margin: 26px 0 12px; display: flex; align-items: center; gap: 8px; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: none; cursor: pointer; border-radius: 10px;
+  padding: 10px 18px; font-size: 14px; font-weight: 600;
+  transition: filter .15s, transform .1s, background .15s;
+  background: var(--brand); color: #fff;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-secondary { background: var(--brand-soft); color: var(--brand-dark); }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.btn-danger { background: var(--red-soft); color: var(--red); }
+.btn-success { background: var(--green); color: #fff; }
+.btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 8px; }
+.full { width: 100%; }
+.btn-block { width: 100%; margin-top: 18px; }
+
+/* ---------- 表单 ---------- */
+.input, .select, textarea {
+  width: 100%; padding: 10px 14px; border: 1px solid var(--line);
+  border-radius: 10px; font-size: 14px; font-family: inherit;
+  background: #fff; color: var(--ink); outline: none;
+  transition: border .15s, box-shadow .15s;
+}
+.input:focus, .select:focus, textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+.field .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* ---------- 登录 ---------- */
+.login-wrap {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(1200px 600px at 20% -10%, #312e81 0%, #1e1b4b 45%, #0f172a 100%);
+  padding: 20px;
+}
+.login-card { width: 400px; background: #fff; border-radius: 18px; padding: 36px; box-shadow: 0 24px 60px -20px rgba(0,0,0,.5); }
+.login-logo { font-size: 42px; text-align: center; }
+.login-title { text-align: center; font-size: 24px; font-weight: 800; margin-top: 8px; }
+.login-sub { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 24px; }
+.tabs { display: flex; background: var(--gray-soft); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
+.tabs button {
+  flex: 1; border: none; background: transparent; padding: 8px; border-radius: 8px;
+  font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.tabs button.active { background: #fff; color: var(--brand-dark); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.login-tip { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
+.error-text { color: var(--red); font-size: 13px; margin-top: 8px; display: none; }
+
+/* ---------- 诊断 ---------- */
+.quiz-wrap { max-width: 760px; margin: 0 auto; }
+.quiz-progress { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.progress-track { flex: 1; height: 8px; background: var(--gray-soft); border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--brand), #8b5cf6); border-radius: 99px; transition: width .3s; }
+.quiz-count { font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.quiz-card { background: #fff; border-radius: var(--radius); padding: 30px; box-shadow: var(--shadow); border: 1px solid var(--line); }
+.quiz-kp-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.kp-tag { background: var(--brand-soft); color: var(--brand-dark); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.quiz-stem { font-size: 17px; font-weight: 600; line-height: 1.7; margin-bottom: 20px; }
+.option {
+  display: flex; align-items: flex-start; gap: 12px;
+  border: 1.5px solid var(--line); border-radius: 12px;
+  padding: 13px 16px; margin-bottom: 10px; cursor: pointer;
+  transition: border .15s, background .15s;
+  font-size: 14.5px;
+}
+.option:hover { border-color: #a5b4fc; background: #fafaff; }
+.option.selected { border-color: var(--brand); background: var(--brand-soft); font-weight: 600; }
+.option .opt-letter { font-weight: 800; color: var(--brand); width: 20px; flex-shrink: 0; }
+.option.correct { border-color: var(--green); background: var(--green-soft); }
+.option.wrong { border-color: var(--red); background: var(--red-soft); }
+.option.reveal-correct { border-color: var(--green); background: var(--green-soft); }
+
+/* ---------- 结果页 ---------- */
+.result-hero { text-align: center; padding: 34px 22px; }
+.score-ring {
+  width: 150px; height: 150px; margin: 0 auto 18px; position: relative;
+}
+.score-ring svg { transform: rotate(-90deg); }
+.score-ring .score-text {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.score-text .num { font-size: 40px; font-weight: 800; line-height: 1; }
+.score-text .unit { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.level-pill { display: inline-block; padding: 5px 16px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+.level-good { background: var(--green-soft); color: var(--green); }
+.level-mid { background: var(--amber-soft); color: var(--amber); }
+.level-low { background: var(--red-soft); color: var(--red); }
+.result-summary { max-width: 620px; margin: 16px auto 0; color: var(--muted); font-size: 14px; }
+
+.legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.legend .item { display: flex; align-items: center; gap: 6px; }
+.legend .swatch { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+
+.path-list { list-style: none; }
+.path-list li {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+  margin-bottom: 10px; background: #fff;
+}
+.path-index {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--brand-soft); color: var(--brand-dark);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+}
+.path-reason { font-size: 12px; color: var(--muted); }
+
+/* ---------- 练习 ---------- */
+.practice-layout { display: grid; grid-template-columns: 1fr 300px; gap: 18px; align-items: start; }
+@media (max-width: 980px) { .practice-layout { grid-template-columns: 1fr; } }
+.qnav { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.qnav button {
+  aspect-ratio: 1; border-radius: 8px; border: 1.5px solid var(--line);
+  background: #fff; cursor: pointer; font-weight: 700; font-size: 13px;
+}
+.qnav button.done-correct { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+.qnav button.done-wrong { background: var(--red-soft); border-color: var(--red); color: var(--red); }
+.qnav button.current { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+.feedback-box {
+  margin-top: 16px; border-radius: 12px; padding: 16px;
+  font-size: 14px; border: 1px solid;
+}
+.feedback-box.correct { background: var(--green-soft); border-color: #a7f3d0; }
+.feedback-box.wrong { background: var(--red-soft); border-color: #fecaca; }
+.feedback-box .fb-title { font-weight: 700; margin-bottom: 6px; }
+.fb-actions { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ---------- AI 出题 ---------- */
+.ai-question {
+  border: 1px solid var(--line); border-radius: 14px; padding: 20px;
+  margin-bottom: 14px; background: #fff;
+}
+.ai-q-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.ai-q-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; }
+.tag-kp { background: var(--brand-soft); color: var(--brand-dark); }
+.tag-diff-easy { background: var(--green-soft); color: var(--green); }
+.tag-diff-medium { background: var(--amber-soft); color: var(--amber); }
+.tag-diff-hard { background: var(--red-soft); color: var(--red); }
+.ai-q-stem { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+.ai-opt { display: flex; gap: 10px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; font-size: 14px; }
+.ai-opt.correct-opt { border-color: var(--green); background: var(--green-soft); }
+.ai-explain { margin-top: 12px; font-size: 13.5px; color: #374151; background: var(--gray-soft); border-radius: 10px; padding: 12px; }
+.ai-explain b { color: var(--brand-dark); }
+
+/* ---------- 讲题聊天 ---------- */
+.chat-layout { display: grid; grid-template-columns: 260px 1fr; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .chat-layout { grid-template-columns: 1fr; } }
+.chat-box {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); display: flex; flex-direction: column; height: 560px;
+}
+.chat-msgs { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.msg { max-width: 80%; padding: 12px 16px; border-radius: 14px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+.msg.user { align-self: flex-end; background: var(--brand); color: #fff; border-bottom-right-radius: 4px; }
+.msg.ai { align-self: flex-start; background: var(--gray-soft); border-bottom-left-radius: 4px; }
+.msg.loading { color: var(--muted); font-style: italic; }
+.chat-input-row { display: flex; gap: 10px; padding: 14px; border-top: 1px solid var(--line); }
+.chat-input-row textarea { flex: 1; resize: none; height: 52px; }
+.chat-courses { display: flex; flex-direction: column; gap: 8px; }
+.course-opt {
+  border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  cursor: pointer; font-size: 14px; background: #fff; text-align: left;
+  display: flex; align-items: center; gap: 10px; transition: border .15s, background .15s;
+}
+.course-opt:hover { border-color: #a5b4fc; }
+.course-opt.active { border-color: var(--brand); background: var(--brand-soft); font-weight: 600; }
+.socratic-note { font-size: 12px; color: var(--muted); margin-top: 12px; }
+
+/* ---------- 历史 / 表格 ---------- */
+.table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.table th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.table td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.table tr:last-child td { border-bottom: none; }
+.mini-score { font-weight: 800; font-size: 15px; }
+
+/* ---------- Toast ---------- */
+#toast-root { position: fixed; top: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: #1f2937; color: #fff; font-size: 13.5px;
+  padding: 12px 18px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  animation: slideIn .25s ease;
+  max-width: 340px;
+}
+.toast.error { background: #b91c1c; }
+.toast.success { background: #047857; }
+@keyframes slideIn { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.loading-block { text-align: center; padding: 60px 20px; color: var(--muted); }
+.spinner {
+  width: 34px; height: 34px; border: 3px solid var(--brand-soft);
+  border-top-color: var(--brand); border-radius: 50%;
+  animation: spin .8s linear infinite; margin: 0 auto 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty { text-align: center; color: var(--muted); padding: 40px 20px; font-size: 14px; }
+.empty .emoji { font-size: 40px; margin-bottom: 10px; }
+
+.ai-intro {
+  background: linear-gradient(135deg, #eef2ff, #faf5ff);
+  border: 1px solid #ddd6fe; border-radius: var(--radius);
+  padding: 20px 24px; margin-bottom: 18px;
+}
+.ai-intro h3 { font-size: 15px; margin-bottom: 4px; }
+.ai-intro p { font-size: 13px; color: #57534e; }
+
+.exam-intro { text-align: center; padding: 40px 24px; }
+.exam-intro .big { font-size: 46px; }
+.exam-intro h2 { margin: 12px 0 6px; }
+.exam-intro p { color: var(--muted); font-size: 14px; max-width: 520px; margin: 0 auto 20px; }
+.exam-config { max-width: 560px; margin: 0 auto; }
+.danger-text { color: var(--red); }
+
+/* 静态版补充样式 */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, .55);
+  display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+}
+.modal {
+  background: #fff; border-radius: 16px; padding: 26px; width: 440px; max-width: 100%;
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .4);
+}
+.modal h3 { font-size: 17px; margin-bottom: 8px; }
+.modal-desc { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.7; }
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(1200px 600px at 20% -10%, #312e81 0%, #1e1b4b 45%, #0f172a 100%); padding: 20px; }
+.login-card { width: 400px; background: #fff; border-radius: 18px; padding: 36px; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .5); }
+.login-logo { font-size: 42px; text-align: center; }
+.login-title { text-align: center; font-size: 24px; font-weight: 800; margin-top: 8px; }
+.login-sub { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 24px; }
+.tabs { display: flex; background: var(--gray-soft); border-radius: 10px; padding: 4px; margin-bottom: 20px; }
+.tabs button { flex: 1; border: none; background: transparent; padding: 8px; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.tabs button.active { background: #fff; color: var(--brand-dark); box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
+.login-tip { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.7; }
+.error-text { color: var(--red); font-size: 13px; margin-top: 8px; display: none; }
+</style>
+</head>
+<body>
+  <div id="app-root"></div>
+  <div id="toast-root"></div>
+  <script>window.__SEED_COURSES__ = [
+  {
+    "name": "概率论与数理统计",
+    "icon": "🎲",
+    "color": "#4f46e5",
+    "outline": "随机事件与概率、条件概率、随机变量及其分布、数字特征、大数定律与中心极限定理、数理统计基础",
+    "description": "自动化、计算机等专业的核心数学课,期末高频考点集中,非常适合个性化诊断。",
+    "sortOrder": 1,
+    "kps": [
+      {
+        "name": "随机事件与古典概型",
+        "weight": 1.2
+      },
+      {
+        "name": "条件概率与独立性",
+        "weight": 1.3
+      },
+      {
+        "name": "全概率公式与贝叶斯公式",
+        "weight": 1.4
+      },
+      {
+        "name": "随机变量及其分布",
+        "weight": 1.3
+      },
+      {
+        "name": "常见离散型分布",
+        "weight": 1.2
+      },
+      {
+        "name": "常见连续型分布",
+        "weight": 1.2
+      },
+      {
+        "name": "期望与方差",
+        "weight": 1.5
+      },
+      {
+        "name": "协方差与相关系数",
+        "weight": 1.1
+      },
+      {
+        "name": "大数定律与中心极限定理",
+        "weight": 1.2
+      },
+      {
+        "name": "数理统计基础(抽样与估计)",
+        "weight": 1
+      }
+    ],
+    "edges": [
+      [
+        "随机事件与古典概型",
+        "条件概率与独立性"
+      ],
+      [
+        "随机事件与古典概型",
+        "全概率公式与贝叶斯公式"
+      ],
+      [
+        "条件概率与独立性",
+        "全概率公式与贝叶斯公式"
+      ],
+      [
+        "条件概率与独立性",
+        "随机变量及其分布"
+      ],
+      [
+        "随机变量及其分布",
+        "常见离散型分布"
+      ],
+      [
+        "随机变量及其分布",
+        "常见连续型分布"
+      ],
+      [
+        "随机变量及其分布",
+        "期望与方差"
+      ],
+      [
+        "常见离散型分布",
+        "期望与方差"
+      ],
+      [
+        "常见连续型分布",
+        "期望与方差"
+      ],
+      [
+        "期望与方差",
+        "协方差与相关系数"
+      ],
+      [
+        "期望与方差",
+        "大数定律与中心极限定理"
+      ],
+      [
+        "随机变量及其分布",
+        "数理统计基础(抽样与估计)"
+      ]
+    ],
+    "questions": [
+      {
+        "stem": "袋中有 3 个红球和 2 个白球,随机取出 2 个球,则 2 个球都是红球的概率为?",
+        "options": [
+          "A. 3/10",
+          "B. 1/2",
+          "C. 2/5",
+          "D. 3/5"
+        ],
+        "correctIndex": 0,
+        "explanation": "古典概型:总数 C(5,2)=10,有利事件 C(3,2)=3,故 P=3/10。",
+        "kps": [
+          "随机事件与古典概型"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "同时掷两枚均匀骰子,则点数之和为 7 的概率是?",
+        "options": [
+          "A. 1/12",
+          "B. 1/6",
+          "C. 1/9",
+          "D. 5/36"
+        ],
+        "correctIndex": 1,
+        "explanation": "基本事件总数为 36,和为 7 的有 (1,6),(2,5),(3,4),(4,3),(5,2),(6,1) 共 6 种,P=6/36=1/6。",
+        "kps": [
+          "随机事件与古典概型"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "已知 P(A)=0.5,P(B)=0.4,P(A∩B)=0.2,则 P(A∪B) 等于?",
+        "options": [
+          "A. 0.9",
+          "B. 0.7",
+          "C. 0.6",
+          "D. 0.1"
+        ],
+        "correctIndex": 1,
+        "explanation": "加法公式 P(A∪B)=P(A)+P(B)-P(A∩B)=0.5+0.4-0.2=0.7。",
+        "kps": [
+          "随机事件与古典概型"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "设 A、B 为独立事件,且 P(A)=0.6,P(B)=0.5,则 P(A∪B) 为?",
+        "options": [
+          "A. 1.1",
+          "B. 0.8",
+          "C. 0.3",
+          "D. 0.2"
+        ],
+        "correctIndex": 1,
+        "explanation": "独立时 P(A∩B)=0.6×0.5=0.3,故 P(A∪B)=0.6+0.5-0.3=0.8。注意概率不能超过 1,排除 A。",
+        "kps": [
+          "条件概率与独立性"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "某产品合格率为 90%,每件产品检测正确率为 95%(合格品判合格、不合格品判不合格),则一件被判为合格的产品真正合格的概率约为?(已知不合格率为 10%,两类错误均为 5%)",
+        "options": [
+          "A. 90.0%",
+          "B. 94.7%",
+          "C. 99.4%",
+          "D. 85.5%"
+        ],
+        "correctIndex": 2,
+        "explanation": "贝叶斯公式:P(合格|判合格)=0.9×0.95/(0.9×0.95+0.1×0.05)=0.855/0.86≈0.994,即 99.4%。",
+        "kps": [
+          "全概率公式与贝叶斯公式"
+        ],
+        "difficulty": "hard"
+      },
+      {
+        "stem": "设 X 的分布列为 P(X=0)=0.3,P(X=1)=0.2,P(X=2)=0.5,则 E(X) 等于?",
+        "options": [
+          "A. 1.0",
+          "B. 1.2",
+          "C. 0.8",
+          "D. 2.0"
+        ],
+        "correctIndex": 1,
+        "explanation": "E(X)=0×0.3+1×0.2+2×0.5=1.2。",
+        "kps": [
+          "随机变量及其分布",
+          "期望与方差"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "某随机变量 X 服从参数为 λ=3 的泊松分布,则 E(X) 与 D(X) 分别为?",
+        "options": [
+          "A. 3 和 9",
+          "B. 3 和 3",
+          "C. 9 和 3",
+          "D. 3 和 √3"
+        ],
+        "correctIndex": 1,
+        "explanation": "泊松分布 X~P(λ) 的期望与方差均为 λ,故 E(X)=D(X)=3。",
+        "kps": [
+          "常见离散型分布"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "设 X~B(n,p),已知 E(X)=12,D(X)=4.8,则参数 n、p 分别为?",
+        "options": [
+          "A. n=30, p=0.4",
+          "B. n=20, p=0.6",
+          "C. n=15, p=0.8",
+          "D. n=24, p=0.5"
+        ],
+        "correctIndex": 1,
+        "explanation": "二项分布:np=12 且 np(1-p)=4.8,两式相除得 1-p=0.4,故 p=0.6,n=12/0.6=20,即 B。",
+        "kps": [
+          "常见离散型分布",
+          "期望与方差"
+        ],
+        "difficulty": "hard"
+      },
+      {
+        "stem": "设 X~N(0,1),Φ(1)=0.8413,则 P(-1<X<1) 等于?",
+        "options": [
+          "A. 0.6826",
+          "B. 0.8413",
+          "C. 0.3174",
+          "D. 0.9545"
+        ],
+        "correctIndex": 0,
+        "explanation": "标准正态分布对称性:P(-1<X<1)=2Φ(1)-1=2×0.8413-1=0.6826,即\"68-95-99.7\"法则中的 1σ 区间。",
+        "kps": [
+          "常见连续型分布"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "设 X 在 [0,4] 上服从均匀分布,则 D(X) 等于?",
+        "options": [
+          "A. 4/3",
+          "B. 2",
+          "C. 16/12",
+          "D. 1"
+        ],
+        "correctIndex": 0,
+        "explanation": "均匀分布 U(a,b) 方差为 (b-a)²/12 = 16/12 = 4/3。",
+        "kps": [
+          "常见连续型分布",
+          "期望与方差"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "设 X、Y 独立,D(X)=4,D(Y)=9,则 D(2X-3Y) 等于?",
+        "options": [
+          "A. 97",
+          "B. 25",
+          "C. 13",
+          "D. 31"
+        ],
+        "correctIndex": 0,
+        "explanation": "独立时方差可线性相加:D(2X-3Y)=4D(X)+9D(Y)=4×4+9×9=97。",
+        "kps": [
+          "期望与方差"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "设 ρ(X,Y)=0.8,则 ρ(2X+1,3Y-2) 等于?",
+        "options": [
+          "A. 0.8",
+          "B. 0.4",
+          "C. 0.96",
+          "D. 0.2"
+        ],
+        "correctIndex": 0,
+        "explanation": "相关系数对 X、Y 的正线性变换不变(正系数时符号不变),故仍为 0.8。",
+        "kps": [
+          "协方差与相关系数"
+        ],
+        "difficulty": "hard"
+      },
+      {
+        "stem": "设 X₁,...,X₁₀₀ 独立同分布,E(Xᵢ)=1,D(Xᵢ)=4,由中心极限定理,样本均值 X̄ 近似服从?",
+        "options": [
+          "A. N(1, 0.04)",
+          "B. N(1, 4)",
+          "C. N(100, 4)",
+          "D. N(0, 1)"
+        ],
+        "correctIndex": 0,
+        "explanation": "样本均值 E(X̄)=1,D(X̄)=D(Xᵢ)/n=4/100=0.04,故近似 N(1,0.04)。",
+        "kps": [
+          "大数定律与中心极限定理"
+        ],
+        "difficulty": "hard"
+      },
+      {
+        "stem": "设总体 X~N(μ,σ²),σ² 已知,(X₁,...,Xₙ) 为样本,则 μ 的置信水平为 1-α 的置信区间中心为?",
+        "options": [
+          "A. 样本均值 x̄",
+          "B. 样本中位数",
+          "C. 样本方差 s²",
+          "D. 总体方差 σ²"
+        ],
+        "correctIndex": 0,
+        "explanation": "σ² 已知时,μ 的区间估计以样本均值 x̄ 为中心,± z_{α/2}·σ/√n。",
+        "kps": [
+          "数理统计基础(抽样与估计)"
+        ],
+        "difficulty": "medium"
+      }
+    ]
+  },
+  {
+    "name": "普通化学",
+    "icon": "⚗️",
+    "color": "#059669",
+    "outline": "原子结构与元素周期律、化学键、热力学基础、化学动力学、化学平衡、酸碱平衡、电化学、有机化学基础",
+    "description": "工科大类必修,概念多、计算杂,是\"题少且分散\"痛点最典型的课程。",
+    "sortOrder": 2,
+    "kps": [
+      {
+        "name": "原子结构与元素周期律",
+        "weight": 1.2
+      },
+      {
+        "name": "化学键与分子结构",
+        "weight": 1.2
+      },
+      {
+        "name": "化学热力学基础",
+        "weight": 1.3
+      },
+      {
+        "name": "化学动力学",
+        "weight": 1.1
+      },
+      {
+        "name": "化学平衡",
+        "weight": 1.4
+      },
+      {
+        "name": "酸碱平衡",
+        "weight": 1.2
+      },
+      {
+        "name": "电化学基础",
+        "weight": 1.2
+      },
+      {
+        "name": "有机化学基础",
+        "weight": 1
+      }
+    ],
+    "edges": [
+      [
+        "原子结构与元素周期律",
+        "化学键与分子结构"
+      ],
+      [
+        "化学键与分子结构",
+        "有机化学基础"
+      ],
+      [
+        "化学热力学基础",
+        "化学平衡"
+      ],
+      [
+        "化学动力学",
+        "化学平衡"
+      ],
+      [
+        "化学平衡",
+        "酸碱平衡"
+      ],
+      [
+        "化学平衡",
+        "电化学基础"
+      ]
+    ],
+    "questions": [
+      {
+        "stem": "基态钠原子(原子序数 11)最外层电子排布式为?",
+        "options": [
+          "A. 3s¹",
+          "B. 3s²",
+          "C. 2p¹",
+          "D. 3p¹"
+        ],
+        "correctIndex": 0,
+        "explanation": "Na 电子排布 1s²2s²2p⁶3s¹,最外层为 3s¹,是典型的碱金属。",
+        "kps": [
+          "原子结构与元素周期律"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "同一主族自上而下,元素的原子半径变化趋势为?",
+        "options": [
+          "A. 逐渐增大",
+          "B. 逐渐减小",
+          "C. 基本不变",
+          "D. 先增大后减小"
+        ],
+        "correctIndex": 0,
+        "explanation": "同主族自上而下电子层数增多,原子半径逐渐增大,金属性增强。",
+        "kps": [
+          "原子结构与元素周期律"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "下列分子中,属于非极性分子的是?",
+        "options": [
+          "A. H₂O",
+          "B. CO₂",
+          "C. NH₃",
+          "D. HCl"
+        ],
+        "correctIndex": 1,
+        "explanation": "CO₂ 为直线形,两个 C=O 键矩相互抵消,分子偶极矩为零,是非极性分子;H₂O 为 V 形、NH₃ 为三角锥形、HCl 为双原子极性分子。",
+        "kps": [
+          "化学键与分子结构"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "下列物质中,含有离子键和共价键的是?",
+        "options": [
+          "A. NaCl",
+          "B. NaOH",
+          "C. HCl",
+          "D. H₂O"
+        ],
+        "correctIndex": 1,
+        "explanation": "NaOH 中 Na⁺ 与 OH⁻ 之间为离子键,OH 内部 O-H 为共价键;NaCl 只有离子键,HCl、H₂O 只有共价键。",
+        "kps": [
+          "化学键与分子结构"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "对于放热反应,若反应在等温等压下自发进行,则必有?",
+        "options": [
+          "A. ΔH<0 且 ΔS>0",
+          "B. ΔG=ΔH-TΔS<0",
+          "C. ΔS>0",
+          "D. ΔG=0"
+        ],
+        "correctIndex": 1,
+        "explanation": "等温等压下自发判据为 ΔG<0。放热(ΔH<0)有利于自发,但并非充分条件,还须考虑熵变与温度。",
+        "kps": [
+          "化学热力学基础"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "升高温度,化学反应速率加快的主要原因是?",
+        "options": [
+          "A. 活化能降低",
+          "B. 活化分子百分数增大",
+          "C. 反应焓变增大",
+          "D. 平衡常数必然增大"
+        ],
+        "correctIndex": 1,
+        "explanation": "温度升高使分子能量分布向高能方向移动,活化分子百分数增大,有效碰撞频率增加,故速率加快。",
+        "kps": [
+          "化学动力学"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "反应 N₂(g)+3H₂(g)⇌2NH₃(g) ΔH<0,下列措施能使平衡向正反应方向移动的是?",
+        "options": [
+          "A. 升高温度",
+          "B. 增大压强",
+          "C. 减小 N₂ 浓度",
+          "D. 加入催化剂"
+        ],
+        "correctIndex": 1,
+        "explanation": "该反应正反应气体分子数减少,增大压强平衡向气体分子数减少(正)方向移动;升温使放热反应逆向移动,催化剂不改变平衡。",
+        "kps": [
+          "化学平衡"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "某温度下反应 A(g)+B(g)⇌C(g) 的 K=4,若某时刻 [A]=[B]=[C]=1 mol/L,则此时?",
+        "options": [
+          "A. 反应正向进行",
+          "B. 反应逆向进行",
+          "C. 处于平衡状态",
+          "D. 无法判断"
+        ],
+        "correctIndex": 0,
+        "explanation": "浓度商 Q=[C]/([A][B])=1/1=1<K=4,反应将正向进行,直至 Q 增大到 K。",
+        "kps": [
+          "化学平衡"
+        ],
+        "difficulty": "hard"
+      },
+      {
+        "stem": "常温下 0.1 mol/L 的 CH₃COOH 溶液(Ka≈1.8×10⁻⁵)中,c(H⁺) 的数量级约为?",
+        "options": [
+          "A. 10⁻²",
+          "B. 10⁻³",
+          "C. 10⁻⁴",
+          "D. 10⁻⁵"
+        ],
+        "correctIndex": 1,
+        "explanation": "弱酸近似:c(H⁺)≈√(Ka·c)=√(1.8×10⁻⁶)≈1.34×10⁻³ mol/L,数量级为 10⁻³。",
+        "kps": [
+          "酸碱平衡"
+        ],
+        "difficulty": "hard"
+      },
+      {
+        "stem": "原电池中,发生氧化反应的电极为?",
+        "options": [
+          "A. 正极",
+          "B. 负极",
+          "C. 阴极",
+          "D. 盐桥"
+        ],
+        "correctIndex": 1,
+        "explanation": "原电池中负极失电子发生氧化反应,正极得电子发生还原反应(口诀:负氧正还)。",
+        "kps": [
+          "电化学基础"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "下列有机物中,官能团为羟基(-OH)且属于醇类的是?",
+        "options": [
+          "A. CH₃COOH",
+          "B. CH₃CH₂OH",
+          "C. CH₃CHO",
+          "D. C₆H₆"
+        ],
+        "correctIndex": 1,
+        "explanation": "乙醇 CH₃CH₂OH 属于醇,羟基与烃基直接相连;乙酸含羧基,乙醛含醛基,苯为芳烃。",
+        "kps": [
+          "有机化学基础"
+        ],
+        "difficulty": "easy"
+      }
+    ]
+  },
+  {
+    "name": "大学物理A",
+    "icon": "🔭",
+    "color": "#dc2626",
+    "outline": "质点运动学与动力学、功与能量、动量守恒、刚体转动、静电场、磁场、热力学、振动与波动",
+    "description": "工科大类必修大课,公式多、模型多,考前需要系统诊断薄弱章节。",
+    "sortOrder": 3,
+    "kps": [
+      {
+        "name": "质点运动学",
+        "weight": 1.1
+      },
+      {
+        "name": "牛顿运动定律",
+        "weight": 1.3
+      },
+      {
+        "name": "功与能量",
+        "weight": 1.3
+      },
+      {
+        "name": "动量与冲量",
+        "weight": 1.2
+      },
+      {
+        "name": "刚体定轴转动",
+        "weight": 1.2
+      },
+      {
+        "name": "静电场(高斯定理)",
+        "weight": 1.3
+      },
+      {
+        "name": "磁场与洛伦兹力",
+        "weight": 1.2
+      },
+      {
+        "name": "振动与波动",
+        "weight": 1.2
+      },
+      {
+        "name": "热力学第一定律",
+        "weight": 1.1
+      }
+    ],
+    "edges": [
+      [
+        "质点运动学",
+        "牛顿运动定律"
+      ],
+      [
+        "牛顿运动定律",
+        "功与能量"
+      ],
+      [
+        "牛顿运动定律",
+        "动量与冲量"
+      ],
+      [
+        "功与能量",
+        "刚体定轴转动"
+      ],
+      [
+        "静电场(高斯定理)",
+        "磁场与洛伦兹力"
+      ],
+      [
+        "振动与波动",
+        "热力学第一定律"
+      ]
+    ],
+    "questions": [
+      {
+        "stem": "一质点沿 x 轴运动,x=2t²-4t+1(m),则 t=2s 时质点的速度为?",
+        "options": [
+          "A. 4 m/s",
+          "B. 8 m/s",
+          "C. 0 m/s",
+          "D. 6 m/s"
+        ],
+        "correctIndex": 0,
+        "explanation": "v=dx/dt=4t-4,代入 t=2 得 v=4 m/s。",
+        "kps": [
+          "质点运动学"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "质量 2 kg 的物体以恒定速率 3 m/s 沿半径为 1.5 m 的圆周运动,所需向心力大小为?",
+        "options": [
+          "A. 12 N",
+          "B. 4 N",
+          "C. 6 N",
+          "D. 9 N"
+        ],
+        "correctIndex": 0,
+        "explanation": "F=mv²/r=2×9/1.5=12 N。",
+        "kps": [
+          "牛顿运动定律"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "一恒力 F=10 N 与位移方向成 60°,使物体沿位移方向移动 2 m,则该力做功为?",
+        "options": [
+          "A. 10 J",
+          "B. 20 J",
+          "C. 17.3 J",
+          "D. 5 J"
+        ],
+        "correctIndex": 0,
+        "explanation": "W=Fs·cosθ=10×2×cos60°=10×2×0.5=10 J。",
+        "kps": [
+          "功与能量"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "一质量为 0.5 kg 的球以 8 m/s 的速度撞墙后以 6 m/s 反弹(速度反向),碰撞过程中球受到的冲量大小为?",
+        "options": [
+          "A. 1 N·s",
+          "B. 7 N·s",
+          "C. 3 N·s",
+          "D. 14 N·s"
+        ],
+        "correctIndex": 1,
+        "explanation": "取反弹方向为正:I=m(v' - v)=0.5×(6-(-8))=0.5×14=7 N·s,方向沿反弹方向。",
+        "kps": [
+          "动量与冲量"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "关于刚体绕定轴转动的转动惯量,下列说法正确的是?",
+        "options": [
+          "A. 与转轴位置无关",
+          "B. 与质量分布有关,且与转轴位置有关",
+          "C. 只与总质量有关",
+          "D. 转动过程中保持不变是绝对的"
+        ],
+        "correctIndex": 1,
+        "explanation": "转动惯量 J=Σmᵢrᵢ²,既与质量分布有关,也与转轴位置有关(平行轴定理)。",
+        "kps": [
+          "刚体定轴转动"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "无限长均匀带电直线,线电荷密度为 λ,距其 r 处的电场强度大小为?(ε₀ 为真空介电常数)",
+        "options": [
+          "A. λ/(2πε₀r)",
+          "B. λ/(πε₀r)",
+          "C. λr/(2πε₀)",
+          "D. 2λ/(ε₀r)"
+        ],
+        "correctIndex": 0,
+        "explanation": "由高斯定理,无限长直线电场 E=λ/(2πε₀r),方向垂直直线。",
+        "kps": [
+          "静电场(高斯定理)"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "一带电粒子以速度 v 垂直于匀强磁场 B 射入,将做?",
+        "options": [
+          "A. 匀速直线运动",
+          "B. 匀变速直线运动",
+          "C. 匀速圆周运动",
+          "D. 抛物线运动"
+        ],
+        "correctIndex": 2,
+        "explanation": "洛伦兹力 F=qvB 始终垂直于速度,只改变方向不改变速率,粒子做匀速圆周运动。",
+        "kps": [
+          "磁场与洛伦兹力"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "简谐运动 x=Acos(ωt+φ) 中,质点在最大位移处时?",
+        "options": [
+          "A. 速度最大,加速度为零",
+          "B. 速度为零,加速度最大",
+          "C. 速度和加速度均最大",
+          "D. 速度和加速度均为零"
+        ],
+        "correctIndex": 1,
+        "explanation": "最大位移处回复力最大,故加速度最大;速度恰为零,动能全部转化为势能。",
+        "kps": [
+          "振动与波动"
+        ],
+        "difficulty": "easy"
+      },
+      {
+        "stem": "一简谐波 y=0.02cos(200πt-2πx)(SI),该波的频率为?",
+        "options": [
+          "A. 100 Hz",
+          "B. 200 Hz",
+          "C. 50 Hz",
+          "D. 400 Hz"
+        ],
+        "correctIndex": 0,
+        "explanation": "ω=200π=2πf,故 f=100 Hz。",
+        "kps": [
+          "振动与波动"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "一定量理想气体等温膨胀,下列物理量中不变的是?",
+        "options": [
+          "A. 压强",
+          "B. 体积",
+          "C. 内能",
+          "D. 温度"
+        ],
+        "correctIndex": 2,
+        "explanation": "理想气体内能只与温度有关,等温过程内能不变;此时吸收的热量全部用于对外做功。",
+        "kps": [
+          "热力学第一定律"
+        ],
+        "difficulty": "medium"
+      },
+      {
+        "stem": "一质量 4 kg 的物体由静止自由下落 5 m(取 g=10 m/s²,忽略空气阻力),落地前瞬间的动能约为?",
+        "options": [
+          "A. 100 J",
+          "B. 200 J",
+          "C. 50 J",
+          "D. 400 J"
+        ],
+        "correctIndex": 1,
+        "explanation": "动能定理:mgh=4×10×5=200 J。",
+        "kps": [
+          "功与能量",
+          "牛顿运动定律"
+        ],
+        "difficulty": "easy"
+      }
+    ]
+  }
+];</script>
+  <script>
+  // ===== 本地存储层(localStorage):用户 / 学习数据 / AI 配置 =====
+const Store = {
+  _read(key, fallback) {
+    try {
+      const v = localStorage.getItem('zxs_' + key);
+      return v == null ? fallback : JSON.parse(v);
+    } catch { return fallback; }
+  },
+  _write(key, value) {
+    localStorage.setItem('zxs_' + key, JSON.stringify(value));
+  },
+
+  users: {
+    list() { return Store._read('users', {}); },
+    save(list) { Store._write('users', list); },
+    find(account) {
+      const list = this.list();
+      return list[account] || null;
+    },
+    add(user) {
+      const list = this.list();
+      list[user.account] = user;
+      this.save(list);
+    }
+  },
+
+  session: {
+    get() { return Store._read('session', null); },
+    set(s) { Store._write('session', s); },
+    clear() { localStorage.removeItem('zxs_session'); }
+  },
+
+  userData: {
+    // 每个用户一份学习数据
+    read(userId) { return Store._read('ud_' + userId, { diagnostics: [], results: [], practice: [], ai: [] }); },
+    save(userId, data) { Store._write('ud_' + userId, data); }
+  },
+
+  ai: {
+    getKey() { return localStorage.getItem('zxs_ds_key') || ''; },
+    setKey(key) { localStorage.setItem('zxs_ds_key', (key || '').trim()); }
+  }
+};
+
+// 简易密码哈希(scrypt 不可用时的浏览器端替代)
+async function hashPassword(password, salt) {
+  const data = new TextEncoder().encode(salt + '::' + password + '::zhishuxing');
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function randomSalt() {
+  const arr = new Uint8Array(12);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+  // ===== 薄弱点诊断引擎(与后端版同算法,纯客户端) =====
+function diagnoseAnswers(course, kpMap, answeredQuestions) {
+  const stats = {};
+  for (const kp of course.kps) stats[kp.id] = { correct: 0, total: 0, kp };
+  for (const a of answeredQuestions) {
+    for (const kpId of a.kpIds) {
+      if (!stats[kpId]) continue;
+      stats[kpId].total++;
+      if (a.correct) stats[kpId].correct++;
+    }
+  }
+
+  const PRIOR = 0.55, STRENGTH = 2.0;
+  const mastery = {}, weak = [], strong = [];
+  for (const kp of course.kps) {
+    const s = stats[kp.id];
+    if (!s.total) {
+      mastery[kp.id] = { score: Math.round(PRIOR * 100), level: 'unknown', evidence: 0, accuracy: null };
+      weak.push({ kp, evidence: 0 });
+      continue;
+    }
+    const acc = s.correct / s.total;
+    const shrunk = (s.correct + STRENGTH * PRIOR) / (s.total + STRENGTH);
+    const score = Math.round(Math.min(1, Math.max(0, shrunk)) * 100);
+    const level = score >= 75 ? 'mastered' : score >= 55 ? 'developing' : 'weak';
+    mastery[kp.id] = { score, level, evidence: s.total, accuracy: Math.round(acc * 100) };
+    if (level === 'weak') weak.push({ kp, evidence: s.total });
+    else if (level === 'mastered') strong.push({ kp, evidence: s.total });
+  }
+
+  weak.sort((a, b) => a.kp.sort_order - b.kp.sort_order);
+  strong.sort((a, b) => b.kp.weight - a.kp.weight);
+
+  const correctCount = answeredQuestions.filter(a => a.correct).length;
+  const score = Math.round(correctCount / (answeredQuestions.length || 1) * 100);
+
+  const report = {
+    summary: buildSummary(score, weak.length, course.kps.length),
+    weakPoints: weak.slice(0, 5).map(w => ({ id: w.kp.id, name: w.kp.name, score: mastery[w.kp.id].score, evidence: w.evidence })),
+    strongPoints: strong.slice(0, 5).map(s => ({ id: s.kp.id, name: s.kp.name, score: mastery[s.kp.id].score })),
+    path: buildReviewPath(course, kpMap, weak.slice(0, 3).map(w => w.kp))
+  };
+  return { score, correctCount, totalCount: answeredQuestions.length, mastery, report };
+}
+
+function buildSummary(score, weakCount, totalKp) {
+  if (score >= 80) return `整体掌握情况良好(得分 ${score} 分),仅 ${weakCount} 个知识点需要巩固。建议保持节奏,重点挑战综合题与易错题。`;
+  if (score >= 60) return `整体处于中等水平(得分 ${score} 分),有 ${weakCount}/${totalKp} 个知识点存在薄弱环节。建议按推荐路径逐个击破。`;
+  return `诊断显示 ${weakCount}/${totalKp} 个知识点掌握不足(得分 ${score} 分)。不必焦虑——按下方路径从最基础的知识点开始即可。`;
+}
+
+function buildReviewPath(course, kpMap, weakKps) {
+  if (!weakKps.length) {
+    return [...course.kps].sort((a, b) => b.weight - a.weight).slice(0, 3)
+      .map(kp => ({ id: kp.id, name: kp.name, reason: '巩固优势,挑战更高阶综合题' }));
+  }
+  const path = [], seen = new Set();
+  for (const kp of weakKps) {
+    for (const e of course.edges || []) {
+      if (e[1] === kp.name) {
+        const p = course.kps.find(k => k.name === e[0]);
+        if (p && !seen.has(p.id)) {
+          seen.add(p.id);
+          path.push({ id: p.id, name: p.name, reason: `${kp.name} 的前置基础` });
+        }
+      }
+    }
+    if (!seen.has(kp.id)) {
+      seen.add(kp.id);
+      path.push({ id: kp.id, name: kp.name, reason: '当前薄弱点,优先攻克' });
+    }
+  }
+  return path;
+}
+
+  // ===== DeepSeek 大模型客户端(浏览器直连,官方 API 支持 CORS) =====
+const DeepSeekClient = {
+  BASE: 'https://api.deepseek.com',
+
+  getKey() { return Store.ai.getKey(); },
+  isConfigured() { return Boolean(this.getKey()); },
+
+  async chat(systemPrompt, userPrompt, { temperature = 0.8, maxTokens = 4096 } = {}) {
+    const key = this.getKey();
+    if (!key) throw new Error('未配置 DeepSeek API Key,请在右上角"设置"中填写');
+    const resp = await fetch(this.BASE + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature,
+        max_tokens: maxTokens,
+        stream: false
+      })
+    });
+    if (!resp.ok) {
+      let msg = 'DeepSeek 请求失败(' + resp.status + ')';
+      try {
+        const data = await resp.json();
+        msg = data.error?.message || data.error || msg;
+      } catch {}
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    return extractJson(data.choices?.[0]?.message?.content || '');
+  },
+
+  async generateQuestions({ courseName, courseOutline, kpName, difficulty, count }) {
+    if (!this.isConfigured()) return fallbackQuestions(courseName, kpName, difficulty, count);
+    const system = `你是一位经验丰富的大学专业课出题专家。要求:1. 每道题必须是单项选择题,4 个选项,只有一个正确;2. 贴合真实考试风格;3. 知识点归属准确(知识点名称与用户给的一致,未给则依据课程大纲);4. 每题给出简短易懂的解析;5. 只输出 JSON。输出格式:{"questions":[{"stem":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"...","kpName":"...","difficulty":"easy|medium|hard"}]}`;
+    const user = `课程:${courseName}\n课程大纲摘要:${courseOutline || ''}\n${kpName ? '知识点:' + kpName : ''}\n难度:${({ easy: '基础', medium: '中等', hard: '较难' })[difficulty] || '中等'}\n请生成 ${count} 道单项选择题。`;
+    const res = await this.chat(system, user, { temperature: 1.0 });
+    return normalizeQuestions(res.questions || []);
+  },
+
+  async generateMockExam({ courseName, courseOutline, kpNames, count }) {
+    if (!this.isConfigured()) return fallbackExam(courseName, count);
+    const system = `你是一位大学专业课命题专家。要求:1. 生成 ${count} 道单选题,覆盖课程核心考点${kpNames.length ? ',尤其侧重:' + kpNames.join('、') : ''};2. 难度分布约 30% 基础、50% 中等、20% 综合;3. 每题 4 选项 1 答案,附解析;4. 只输出 JSON:{"questions":[{"stem":"...","options":["A","B","C","D"],"correctIndex":0,"explanation":"...","kpName":"...","difficulty":"easy|medium|hard"}]}`;
+    const user = `课程:${courseName}\n课程大纲摘要:${courseOutline || ''}\n请生成含 ${count} 道单选题的考前冲刺模拟卷。`;
+    const res = await this.chat(system, user, { temperature: 0.9 });
+    return normalizeQuestions(res.questions || []);
+  },
+
+  async tutor({ courseName, question, history }) {
+    if (!this.isConfigured()) {
+      return `(未配置 DeepSeek API Key,当前为离线演示)\n\n这道题我们先不急着算。请先告诉我:1. 它考察的是「${courseName}」中的哪个知识点?你能否写出相关定义或公式?2. 题目给出了哪些已知条件?分别对应公式里的哪个量?\n\n想清楚这两点,你大概率能自己找到突破口。回复"直接讲"可让我给思路框架。`;
+    }
+    const messages = (history || []).slice(-8).map(m => ({ role: m.role, content: String(m.content || '').slice(0, 2000) }));
+    if (question) messages.push({ role: 'user', content: `课程:${courseName}\n问题:${String(question).slice(0, 2000)}` });
+    if (!messages.length) return '请描述你想问的题目或知识点。';
+    const resp = await fetch(this.BASE + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.getKey() },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [{ role: 'system', content: TUTOR_SYSTEM }, ...messages],
+        temperature: 0.7,
+        max_tokens: 800,
+        stream: false
+      })
+    });
+    if (!resp.ok) {
+      let msg = 'DeepSeek 请求失败(' + resp.status + ')';
+      try { const d = await resp.json(); msg = d.error?.message || d.error || msg; } catch {}
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    return data.choices?.[0]?.message?.content || '抱歉,暂时无法回答,请稍后再试。';
+  }
+};
+
+const TUTOR_SYSTEM = `你是"智刷星"平台上的 AI 学习伙伴,采用苏格拉底式教学法帮助大学生理解专业课难题。
+规则:1. 绝不直接给出完整答案或解题过程,而是通过 1-3 个递进式问题引导学生自己思考;2. 学生给出思路时先肯定正确部分,再针对错误或模糊处继续提问;3. 可提示关键定理、概念或公式名称,但不代写完整推导;4. 使用中文,像耐心负责的学长学姐,每次回复不超过 250 字;5. 学生明确请求"直接讲"时可逐步给出思路框架,但保留关键一步让学生完成。`;
+
+function extractJson(text) {
+  let t = String(text).trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) t = fence[1].trim();
+  const start = t.indexOf('{'), end = t.lastIndexOf('}');
+  if (start >= 0 && end > start) t = t.slice(start, end + 1);
+  return JSON.parse(t);
+}
+
+function normalizeQuestions(list) {
+  return list.map((q, i) => {
+    const ci = Number(q.correctIndex);
+    const validCi = Number.isInteger(ci) && ci >= 0 && ci <= 3 ? ci : 0;
+    const options = Array.isArray(q.options) && q.options.length >= 4
+      ? q.options.slice(0, 4).map(o => String(o))
+      : ['选项 A', '选项 B', '选项 C', '选项 D'];
+    return {
+      stem: String(q.stem || `第 ${i + 1} 题`),
+      options,
+      correctIndex: validCi,
+      explanation: String(q.explanation || '本题考查了对应知识点的核心概念。'),
+      kpName: String(q.kpName || '综合'),
+      difficulty: ['easy', 'medium', 'hard'].includes(q.difficulty) ? q.difficulty : 'medium'
+    };
+  }).slice(0, 5);
+}
+
+function fallbackQuestions(courseName, kpName, difficulty, count) {
+  const kp = kpName ? `(${kpName})` : '';
+  const pool = [
+    { stem: `关于「${courseName}」${kp} 的基础考点,下列说法正确的是?`, options: ['选项 A:定义与公式完全等价,无需区分适用条件', '选项 B:先理解概念的前提假设,再套用公式计算', '选项 C:考试中背下公式即可,概念无需理解', '选项 D:所有结论对所有情况都成立'], correctIndex: 1, explanation: '学习任何知识点都应先理解概念与适用条件,再通过练习巩固公式应用。', kpName: kpName || '综合考点', difficulty },
+    { stem: `关于「${courseName}」中知识点的理解,以下哪项最能帮助你在考试中避免失分?${kp}`, options: ['选项 A:只做难题,不做基础题', '选项 B:盲目刷题,不总结错因', '选项 C:针对薄弱点做专项练习并及时复盘错题', '选项 D:考前临时突击所有内容'], correctIndex: 2, explanation: '个性化复习的关键是"诊断薄弱点 → 专项练习 → 复盘错题"。', kpName: kpName || '复习策略', difficulty }
+  ];
+  return Array.from({ length: count }, (_, i) => ({ ...pool[i % 2], stem: `${i + 1}. ${pool[i % 2].stem}` }));
+}
+
+function fallbackExam(courseName, count) {
+  return Array.from({ length: count }, (_, i) => ({
+    stem: `${i + 1}. 【${courseName}】关于课程核心概念的综合理解,以下说法正确的是?`,
+    options: ['A. 概念之间彼此孤立,可单独记忆', 'B. 核心概念之间存在逻辑关联,理解推导过程比死记结论更重要', 'C. 只需记住最终公式', 'D. 不需要理解,考过就忘'],
+    correctIndex: 1,
+    explanation: '专业课学习的本质是建立知识网络,理解概念间的联系与推导逻辑。',
+    kpName: '综合',
+    difficulty: i % 3 === 0 ? 'easy' : i % 3 === 1 ? 'medium' : 'hard'
+  }));
+}
+
+  // ===== 知识图谱 SVG 渲染(力导向布局) =====
+function renderKnowledgeGraph(container, course, mastery, practiceStats) {
+  const nodes = course.kps.map(kp => ({ id: kp.id, name: kp.name, weight: kp.weight || 1 }));
+  const edges = (course.edges || []).map(e => {
+    const s = course.kps.find(k => k.name === e[0]);
+    const t = course.kps.find(k => k.name === e[1]);
+    return s && t ? { source: s.id, target: t.id } : null;
+  }).filter(Boolean);
+  const practice = {};
+  (practiceStats || []).forEach(s => { practice[s.kp_id] = s.acc; });
+
+  const W = 820, H = 460, cx = W / 2, cy = H / 2;
+  nodes.forEach((n, i) => {
+    const angle = (i / Math.max(nodes.length, 1)) * Math.PI * 2 - Math.PI / 2;
+    const radius = Math.min(W, H) * 0.32 + (n.weight || 1) * 12;
+    n.x = cx + Math.cos(angle) * radius;
+    n.y = cy + Math.sin(angle) * radius;
+    n.vx = 0; n.vy = 0;
+  });
+
+  for (let iter = 0; iter < 220; iter++) {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        let dx = a.x - b.x, dy = a.y - b.y;
+        let d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = 2400 / (d * d);
+        dx /= d; dy /= d;
+        a.vx += dx * force; a.vy += dy * force;
+        b.vx -= dx * force; b.vy -= dy * force;
+      }
+    }
+    for (const e of edges) {
+      const a = nodes.find(n => n.id === e.source), b = nodes.find(n => n.id === e.target);
+      if (!a || !b) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const force = (d - 90) * 0.04;
+      a.vx += (dx / d) * force; a.vy += (dy / d) * force;
+      b.vx -= (dx / d) * force; b.vy -= (dy / d) * force;
+    }
+    for (const n of nodes) {
+      n.vx *= 0.82; n.vy *= 0.82;
+      n.x += n.vx; n.y += n.vy;
+      n.x = Math.max(48, Math.min(W - 48, n.x));
+      n.y = Math.max(40, Math.min(H - 40, n.y));
+    }
+  }
+
+  const colors = { weak: '#dc2626', developing: '#d97706', mastered: '#059669', unknown: '#9ca3af' };
+  const labels = { weak: '薄弱', developing: '待加强', mastered: '掌握', unknown: '未诊断' };
+  const levels = {};
+  nodes.forEach(n => {
+    let level = 'unknown';
+    if (mastery && mastery[n.id]) level = mastery[n.id].level;
+    else if (practice[n.id] != null) level = practice[n.id] >= 0.6 ? 'mastered' : practice[n.id] >= 0.4 ? 'developing' : 'weak';
+    levels[n.id] = level;
+  });
+
+  const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;background:#fafbff;border-radius:12px;border:1px solid #e5e9f2">
+    <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#c7cddd"/></marker></defs>
+    ${edges.map(e => {
+      const a = nodes.find(n => n.id === e.source), b = nodes.find(n => n.id === e.target);
+      return a && b ? `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#c7cddd" stroke-width="1.6" marker-end="url(#arrow)"/>` : '';
+    }).join('')}
+    ${nodes.map(n => {
+      const r = 22 + (n.weight || 1) * 4;
+      const c = colors[levels[n.id]] || colors.unknown;
+      const score = mastery && mastery[n.id] ? `<text x="${n.x}" y="${n.y - r - 6}" text-anchor="middle" font-size="11" font-weight="800" fill="${c}">${mastery[n.id].score}分</text>` : '';
+      return `<g><circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${c}" fill-opacity="0.12" stroke="${c}" stroke-width="2.2"/><circle cx="${n.x}" cy="${n.y}" r="6" fill="${c}"/><text x="${n.x}" y="${n.y + r + 14}" text-anchor="middle" font-size="12.5" font-weight="600" fill="#374151">${esc(n.name)}</text>${score}</g>`;
+    }).join('')}
+  </svg>`;
+
+  const legend = Object.keys(colors).map(k => `<span class="item"><span class="swatch" style="background:${colors[k]}"></span>${labels[k]}</span>`).join('');
+  container.innerHTML = `<div style="margin-bottom:12px">${svg}</div><div class="legend">${legend}</div>`;
+}
+
+  // ===== 智刷星 · 静态版主逻辑 =====
+const SEED = typeof __SEED_COURSES__ !== 'undefined' ? __SEED_COURSES__ : [];
+const state = { user: null, courses: [], quiz: null, practice: null, aiStatus: { configured: false } };
+window.__STATE__ = state; // 便于调试与自动化测试
+
+document.addEventListener('DOMContentLoaded', init);
+window.addEventListener('hashchange', route);
+
+function init() {
+  state.courses = buildCourses(SEED);
+  state.user = Store.session.get();
+  state.aiStatus.configured = DeepSeekClient.isConfigured();
+  if (state.user) showApp(); else showLogin();
+}
+
+// 把 seed 数据(知识点名/题)转为带 id 的结构
+function buildCourses(seed) {
+  return seed.map(c => {
+    const kps = c.kps.map((k, i) => ({ ...k, id: i + 1, sort_order: i }));
+    const kpIdByName = {};
+    kps.forEach(k => { kpIdByName[k.name] = k.id; });
+    const questions = c.questions.map((q, i) => ({
+      ...q,
+      id: i + 1,
+      courseId: 0,
+      kpIds: q.kps.map(name => kpIdByName[name]).filter(Boolean)
+    }));
+    return { ...c, id: 0, kps, questions, edges: c.edges || [] };
+  }).map((c, i) => ({
+    ...c,
+    id: i + 1,
+    questions: c.questions.map(q => ({ ...q, courseId: i + 1 }))
+  }));
+}
+
+function kpName(course, id) {
+  const kp = (course.kps || []).find(k => k.id === id);
+  return kp ? kp.name : '综合';
+}
+
+/* ================= 登录 / 注册 ================= */
+function showLogin() {
+  const root = document.getElementById('app-root');
+  root.className = 'login-wrap';
+  root.innerHTML = `
+    <div class="login-card">
+      <div class="login-logo">✨</div>
+      <div class="login-title">智刷星</div>
+      <div class="login-sub">AI 专业课智能刷题平台 · 华中科技大学创客训练营</div>
+      <div class="tabs"><button id="tab-login" class="active">登录</button><button id="tab-register">注册</button></div>
+      <div id="login-form">
+        <div class="field"><label>账号(学号/邮箱)</label><input class="input" id="login-account" placeholder="学号或邮箱"></div>
+        <div class="field"><label>密码</label><input class="input" type="password" id="login-password" placeholder="输入密码"></div>
+        <div class="error-text" id="login-error"></div>
+        <button class="btn btn-block" id="login-btn">进入学习台</button>
+      </div>
+      <div id="register-form" class="hidden">
+        <div class="field"><label>姓名</label><input class="input" id="reg-name" placeholder="你的姓名"></div>
+        <div class="field"><label>账号(学号/邮箱)</label><input class="input" id="reg-account" placeholder="学号或邮箱"></div>
+        <div class="field"><label>密码(至少 6 位)</label><input class="input" type="password" id="reg-password" placeholder="设置密码"></div>
+        <div class="error-text" id="register-error"></div>
+        <button class="btn btn-block" id="register-btn">注册并开始学习</button>
+      </div>
+      <div class="login-tip">数据保存在本浏览器(localStorage),换设备或清缓存会丢失;AI 功能需在设置中填写 DeepSeek API Key</div>
+    </div>`;
+  document.getElementById('tab-login').onclick = () => switchAuthTab(true);
+  document.getElementById('tab-register').onclick = () => switchAuthTab(false);
+  document.getElementById('login-btn').onclick = doLogin;
+  document.getElementById('register-btn').onclick = doRegister;
+}
+
+function switchAuthTab(isLogin) {
+  document.getElementById('tab-login').classList.toggle('active', isLogin);
+  document.getElementById('tab-register').classList.toggle('active', !isLogin);
+  document.getElementById('login-form').classList.toggle('hidden', !isLogin);
+  document.getElementById('register-form').classList.toggle('hidden', isLogin);
+}
+
+async function doLogin() {
+  const account = document.getElementById('login-account').value.trim();
+  const password = document.getElementById('login-password').value;
+  const err = document.getElementById('login-error');
+  err.style.display = 'none';
+  const user = Store.users.find(account);
+  if (!user) { err.textContent = '账号不存在,请先注册'; err.style.display = 'block'; return; }
+  const hash = await hashPassword(password, user.salt);
+  if (hash !== user.passHash) { err.textContent = '密码错误'; err.style.display = 'block'; return; }
+  state.user = user;
+  Store.session.set({ id: user.id, name: user.name, account: user.account });
+  showApp();
+}
+
+async function doRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const account = document.getElementById('reg-account').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const err = document.getElementById('register-error');
+  err.style.display = 'none';
+  if (!name || !account || password.length < 6) { err.textContent = '请填写完整信息,密码至少 6 位'; err.style.display = 'block'; return; }
+  if (Store.users.find(account)) { err.textContent = '该账号已注册'; err.style.display = 'block'; return; }
+  const salt = randomSalt();
+  const user = { id: Date.now() % 1000000000, name, account, salt, passHash: await hashPassword(password, salt) };
+  Store.users.add(user);
+  state.user = user;
+  Store.session.set({ id: user.id, name: user.name, account: user.account });
+  toast('注册成功,欢迎使用智刷星!', 'success');
+  showApp();
+}
+
+/* ================= 应用壳 ================= */
+function showApp() {
+  const root = document.getElementById('app-root');
+  root.className = '';
+  root.innerHTML = `
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-icon">✨</span><div><div class="brand-name">智刷星</div><div class="brand-sub">AI 学习伙伴</div></div></div>
+      <nav class="nav">
+        <a href="#/dashboard" class="nav-item" data-nav="dashboard"><span>🏠</span> 学习台</a>
+        <a href="#/courses" class="nav-item" data-nav="courses"><span>📚</span> 全部课程</a>
+        <a href="#/history" class="nav-item" data-nav="history"><span>📊</span> 诊断记录</a>
+        <a href="#/ai" class="nav-item" data-nav="ai"><span>🤖</span> AI 出题</a>
+        <a href="#/tutor" class="nav-item" data-nav="tutor"><span>💬</span> AI 讲题</a>
+        <a href="#/mock-exam" class="nav-item" data-nav="mock-exam"><span>📝</span> 模拟卷</a>
+        <a href="#/about" class="nav-item" data-nav="about"><span>📋</span> 关于项目</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-chip"><div class="avatar" id="user-avatar">学</div><div class="user-meta"><div id="user-name">同学</div><div>本机账号</div></div></div>
+        <button class="btn btn-ghost btn-sm full" id="settings-btn">⚙️ AI 设置</button>
+        <button class="btn btn-ghost btn-sm full" id="logout-btn">退出登录</button>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div><h1 id="page-title">学习台</h1><p id="page-subtitle">期末复习的 AI 智能伙伴</p></div>
+        <div class="topbar-right"><span class="ai-badge" id="ai-status"></span></div>
+      </header>
+      <div id="view" class="view"></div>
+    </main>`;
+  document.getElementById('user-name').textContent = state.user.name;
+  document.getElementById('user-avatar').textContent = state.user.name.slice(0, 1);
+  document.getElementById('logout-btn').onclick = () => { Store.session.clear(); location.hash = ''; showLogin(); };
+  document.getElementById('settings-btn').onclick = openSettings;
+  refreshAiBadge();
+  if (!location.hash) location.hash = '#/dashboard';
+  route();
+}
+
+function refreshAiBadge() {
+  const badge = document.getElementById('ai-status');
+  if (!badge) return;
+  state.aiStatus.configured = DeepSeekClient.isConfigured();
+  badge.className = 'ai-badge' + (state.aiStatus.configured ? '' : ' off');
+  badge.innerHTML = state.aiStatus.configured
+    ? '<span class="dot"></span> DeepSeek 已接入'
+    : '<span class="dot"></span> AI 未配置(内置题库模式)';
+}
+
+function openSettings() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>⚙️ AI 设置(DeepSeek)</h3>
+      <p class="modal-desc">在 <a href="https://platform.deepseek.com/" target="_blank" rel="noopener">platform.deepseek.com</a> 注册并创建 API Key。Key 仅保存在<b>本机浏览器</b>,直接调用 DeepSeek 官方接口,不经过任何中间服务器。</p>
+      <div class="field"><label>DeepSeek API Key</label><input class="input" id="ds-key" type="password" placeholder="sk-..."></div>
+      <div class="field"><label>模型</label><select class="select" id="ds-model"><option value="deepseek-chat">deepseek-chat(推荐)</option><option value="deepseek-reasoner">deepseek-reasoner(R1 深度思考)</option></select></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-ghost btn-sm" id="ds-cancel">取消</button>
+        <button class="btn btn-sm" id="ds-save">保存</button>
+      </div>
+      <div class="error-text" id="ds-error"></div>
+    </div>`;
+  overlay.querySelector('#ds-key').value = Store.ai.getKey();
+  document.body.appendChild(overlay);
+  overlay.querySelector('#ds-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#ds-save').onclick = () => {
+    const key = overlay.querySelector('#ds-key').value.trim();
+    if (key && !/^sk-/.test(key)) {
+      overlay.querySelector('#ds-error').textContent = 'Key 格式应为 sk- 开头';
+      overlay.querySelector('#ds-error').style.display = 'block';
+      return;
+    }
+    Store.ai.setKey(key);
+    overlay.remove();
+    refreshAiBadge();
+    toast(key ? 'DeepSeek 已接入 ✓' : '已清除 Key', key ? 'success' : 'info');
+  };
+}
+
+/* ================= 路由 ================= */
+const PAGES = {
+  dashboard: { title: '学习台', sub: '期末复习的 AI 智能伙伴' },
+  courses: { title: '全部课程', sub: '选择课程,开始诊断与练习' },
+  history: { title: '诊断记录', sub: '回顾每一次诊断与成长' },
+  ai: { title: 'AI 出题', sub: 'DeepSeek 大模型实时生成专属题目' },
+  tutor: { title: 'AI 讲题', sub: '苏格拉底式引导,理解而非死记' },
+  'mock-exam': { title: '考前冲刺模拟卷', sub: 'AI 根据你的薄弱点智能组卷' },
+  about: { title: '关于项目', sub: '创客竞赛选题:智刷队' }
+};
+
+function route() {
+  if (!state.user) return;
+  const hash = location.hash.replace(/^#\/?/, '') || 'dashboard';
+  const parts = hash.split('?')[0].split('/');
+  const page = parts[0];
+  const meta = PAGES[page];
+  if (meta) {
+    document.getElementById('page-title').textContent = meta.title;
+    document.getElementById('page-subtitle').textContent = meta.sub;
+  }
+  document.querySelectorAll('.nav-item').forEach(a => a.classList.toggle('active', a.dataset.nav === page));
+  const view = document.getElementById('view');
+  view.innerHTML = '<div class="loading-block"><div class="spinner"></div>加载中…</div>';
+  try {
+    if (page === 'dashboard') renderDashboard(view);
+    else if (page === 'courses') renderCourses(view);
+    else if (page === 'history') renderHistory(view);
+    else if (page === 'ai') renderAiPage(view);
+    else if (page === 'tutor') renderTutorPage(view);
+    else if (page === 'mock-exam') renderMockExamPage(view);
+    else if (page === 'about') renderAbout(view);
+    else if (page === 'diagnostic') renderDiagnostic(view, Number(parts[1]));
+    else if (page === 'result') renderResult(view, Number(parts[1]));
+    else if (page === 'practice') renderPractice(view, Number(parts[1]), Number(parts[2] || 0));
+    else if (page === 'course') renderCourseDetail(view, Number(parts[1]));
+    else view.innerHTML = '<div class="empty"><div class="emoji">🧭</div>页面不存在</div>';
+  } catch (e) {
+    view.innerHTML = `<div class="empty"><div class="emoji">⚠️</div><div>${esc(e.message)}</div></div>`;
+  }
+}
+
+function userData() {
+  return Store.userData.read(state.user.id);
+}
+
+function saveUserData(data) {
+  Store.userData.save(state.user.id, data);
+}
+
+/* ================= 学习台 ================= */
+function renderDashboard(view) {
+  const data = userData();
+  const practice = data.practice || [];
+  const correct = practice.filter(a => a.correct).length;
+  const acc = practice.length ? Math.round(correct / practice.length * 100) : 0;
+  const latest = (data.results || []).slice().sort((a, b) => b.id - a.id)[0];
+  const kpAcc = {};
+  for (const c of state.courses) for (const a of practice) {
+    if (!c.questions.some(q => q.id === a.questionId)) continue;
+    for (const kpId of a.kpIds || []) {
+      kpAcc[kpId] = kpAcc[kpId] || { n: 0, c: 0, name: kpName(c, kpId) };
+      kpAcc[kpId].n++;
+      if (a.correct) kpAcc[kpId].c++;
+    }
+  }
+  const weakKps = Object.values(kpAcc).filter(s => s.c / s.n < 0.6).sort((a, b) => a.c / a.n - b.c / b.n).slice(0, 6);
+
+  view.innerHTML = `
+    <div class="grid grid-4">
+      <div class="card stat-card"><div class="stat-icon" style="background:var(--brand-soft)">📝</div><div><div class="stat-value">${practice.length}</div><div class="stat-label">累计刷题</div></div></div>
+      <div class="card stat-card"><div class="stat-icon" style="background:var(--green-soft)">🎯</div><div><div class="stat-value">${acc}%</div><div class="stat-label">正确率</div></div></div>
+      <div class="card stat-card"><div class="stat-icon" style="background:var(--amber-soft)">🧪</div><div><div class="stat-value">${(data.results || []).length}</div><div class="stat-label">完成诊断</div></div></div>
+      <div class="card stat-card"><div class="stat-icon" style="background:#faf5ff">🤖</div><div><div class="stat-value">${(data.ai || []).length}</div><div class="stat-label">AI 生成题目</div></div></div>
+    </div>
+    <div class="section-title">📊 近期概况</div>
+    ${latest ? `
+      <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div><div style="font-weight:700;font-size:16px">${esc(latest.courseName)} · 最近诊断</div><div style="font-size:12.5px;color:var(--muted);margin-top:2px">${fmtTime(latest.createdAt)}</div></div>
+        <div style="text-align:right"><div class="mini-score" style="color:${latest.score >= 75 ? 'var(--green)' : latest.score >= 55 ? 'var(--amber)' : 'var(--red)'}">${latest.score} 分</div><div style="font-size:12px;color:var(--muted)">${latest.correctCount}/${latest.totalCount} 题正确</div></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-secondary btn-sm" href="#/result/${latest.id}">查看诊断报告</a><a class="btn btn-sm" href="#/practice/${latest.courseId}">针对练习</a></div></div>` : `
+      <div class="card"><div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap"><div style="font-size:38px">🧪</div><div style="flex:1"><div style="font-weight:700;font-size:16px">还没有诊断记录</div><div style="font-size:13px;color:var(--muted);margin-top:2px">做一次 10 题的知识点诊断,AI 帮你找到薄弱点并规划复习路径</div></div><a class="btn" href="#/courses">开始诊断</a></div></div>`}
+    <div class="section-title">⚠️ 薄弱知识点(基于练习记录)</div>
+    <div class="card"><div style="display:flex;gap:8px;flex-wrap:wrap">${weakKps.map(k => `<span class="kp-tag">${esc(k.name)}</span>`).join('') || '<span style="color:var(--muted);font-size:13px">暂无薄弱点,继续保持!</span>'}</div></div>
+    <div class="section-title">📚 我的课程</div>
+    <div class="grid grid-3">${state.courses.map(c => `<div class="card course-card" data-course="${c.id}"><div class="course-icon">${c.icon}</div><h3>${esc(c.name)}</h3><p>${esc(c.description)}</p><div class="course-meta"><span>${c.kps.length} 知识点</span><span>${c.questions.length} 道内置题</span></div></div>`).join('')}</div>`;
+  view.querySelectorAll('.course-card').forEach(el => { el.onclick = () => location.hash = '#/course/' + el.dataset.course; });
+}
+
+/* ================= 课程 ================= */
+function renderCourses(view) {
+  view.innerHTML = `
+    <div class="ai-intro"><h3>🧭 三步开启高效复习</h3><p>① 选择课程 → ② 完成 10 题快速诊断,识别薄弱知识点 → ③ 按推荐路径针对性刷题,遇到难题随时问 AI 讲题</p></div>
+    <div class="grid grid-3">${state.courses.map(c => `
+      <div class="card course-card" data-course="${c.id}"><div class="course-icon">${c.icon}</div><h3>${esc(c.name)}</h3><p>${esc(c.description)}</p>
+      <div class="course-meta"><span>${c.kps.length} 知识点</span><span>${c.questions.length} 道内置题</span></div>
+      <div style="margin-top:14px;display:flex;gap:8px"><button class="btn btn-sm btn-secondary diag-btn" data-id="${c.id}">开始诊断</button><button class="btn btn-sm btn-ghost practice-btn" data-id="${c.id}">直接刷题</button></div></div>`).join('')}</div>`;
+  view.querySelectorAll('.diag-btn').forEach(b => b.onclick = () => location.hash = '#/diagnostic/' + b.dataset.id);
+  view.querySelectorAll('.practice-btn').forEach(b => b.onclick = () => location.hash = '#/practice/' + b.dataset.id);
+}
+
+function renderCourseDetail(view, courseId) {
+  const c = state.courses.find(x => x.id === courseId);
+  if (!c) throw new Error('课程不存在');
+  const data = userData();
+  const latest = (data.results || []).filter(r => r.courseId === courseId).sort((a, b) => b.id - a.id)[0];
+  view.innerHTML = `
+    <div class="card" style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:18px">
+      <div style="font-size:44px">${c.icon}</div>
+      <div style="flex:1;min-width:220px"><h2 style="font-size:20px">${esc(c.name)}</h2><p style="color:var(--muted);font-size:13px;margin-top:2px">${esc(c.description)}</p></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" onclick="location.hash='#/diagnostic/${c.id}'">🧪 开始诊断</button><a class="btn btn-secondary" href="#/practice/${c.id}">📝 刷题练习</a><a class="btn btn-ghost" href="#/ai?course=${c.id}">🤖 AI 出题</a></div>
+    </div>
+    <div class="section-title">🗺️ 课程知识图谱</div>
+    <div class="card" id="graph-box"></div>
+    <div class="section-title">📌 知识点清单</div>
+    <div class="grid grid-2">${c.kps.map(kp => `<div class="card" style="padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px"><div><div style="font-weight:600">${esc(kp.name)}</div><div style="font-size:12px;color:var(--muted)">权重 ${kp.weight}</div></div><a class="btn btn-sm btn-ghost" href="#/practice/${c.id}/${kp.id}">专项练习</a></div>`).join('')}</div>`;
+  const practiceStats = {};
+  for (const a of data.practice || []) {
+    if (!c.questions.some(q => q.id === a.questionId)) continue;
+    for (const kpId of a.kpIds || []) {
+      practiceStats[kpId] = practiceStats[kpId] || { kp_id: kpId, acc: 0, n: 0 };
+      practiceStats[kpId].n++;
+      practiceStats[kpId].acc += a.correct ? 1 : 0;
+    }
+  }
+  Object.values(practiceStats).forEach(s => s.acc = s.acc / s.n);
+  renderKnowledgeGraph(document.getElementById('graph-box'), c, latest ? latest.mastery : null, Object.values(practiceStats));
+}
+
+/* ================= 诊断 ================= */
+function renderDiagnostic(view, courseId) {
+  const course = state.courses.find(x => x.id === courseId);
+  if (!course) throw new Error('课程不存在');
+  const all = course.questions.map((q, i) => ({ ...q, seq: i }));
+  const picked = [];
+  const covered = new Set();
+  // 贪心全覆盖 + 随机补齐
+  while (picked.length < 10 && all.length) {
+    let best = null, gain = -1;
+    for (const q of all) {
+      if (picked.includes(q)) continue;
+      const g = q.kpIds.filter(id => !covered.has(id)).length;
+      if (g > gain) { gain = g; best = q; }
+    }
+    if (best && gain > 0 && picked.length < Math.min(course.kps.length, 8)) {
+      picked.push(best);
+      best.kpIds.forEach(id => covered.add(id));
+    } else {
+      const rest = all.filter(q => !picked.includes(q));
+      if (!rest.length) break;
+      const q = rest[Math.floor(Math.random() * rest.length)];
+      picked.push(q);
+      q.kpIds.forEach(id => covered.add(id));
+    }
+  }
+  state.quiz = { courseId, questions: picked.slice(0, 10), index: 0, answers: [] };
+  renderQuizStep(view, course);
+}
+
+function renderQuizStep(view, course) {
+  const qz = state.quiz;
+  if (qz.index >= qz.questions.length) { finishDiagnostic(); return; }
+  const q = qz.questions[qz.index];
+  view.innerHTML = `
+    <div class="quiz-wrap">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><a class="btn btn-sm btn-ghost" href="#/course/${course.id}">← 返回</a><div style="font-weight:700;font-size:15px">${course.icon} ${esc(course.name)} · 知识点诊断</div></div>
+      <div class="quiz-progress"><div class="progress-track"><div class="progress-fill" style="width:${(qz.index / 10 * 100).toFixed(0)}%"></div></div><div class="quiz-count">${qz.index + 1} / 10</div></div>
+      <div class="quiz-card">
+        <div class="quiz-kp-tags">${q.kpIds.map(id => `<span class="kp-tag">${esc(kpName(course, id))}</span>`).join('')}</div>
+        <div class="quiz-stem">${esc(q.stem)}</div>
+        ${q.options.map((opt, i) => `<div class="option" data-index="${i}"><span class="opt-letter">${String.fromCharCode(65 + i)}.</span><span>${esc(opt)}</span></div>`).join('')}
+        <button class="btn btn-block" id="quiz-next" disabled>确认作答,下一题</button>
+      </div>
+    </div>`;
+  let selected = null;
+  view.querySelectorAll('.option').forEach(el => {
+    el.onclick = () => {
+      view.querySelectorAll('.option').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+      selected = Number(el.dataset.index);
+      document.getElementById('quiz-next').disabled = false;
+    };
+  });
+  document.getElementById('quiz-next').onclick = () => {
+    qz.answers.push({ questionId: q.id, selected, kpIds: q.kpIds, correct: selected === q.correctIndex });
+    qz.index++;
+    renderQuizStep(view, course);
+  };
+}
+
+function finishDiagnostic() {
+  const qz = state.quiz;
+  const course = state.courses.find(c => c.id === qz.courseId);
+  const result = diagnoseAnswers(course, {}, qz.answers);
+  const data = userData();
+  const record = {
+    id: Date.now(),
+    courseId: qz.courseId,
+    courseName: course.name,
+    createdAt: new Date().toISOString(),
+    ...result
+  };
+  data.results = data.results || [];
+  data.results.push(record);
+  saveUserData(data);
+  state.quiz = null;
+  toast('诊断完成!正在生成分析报告…', 'success');
+  location.hash = '#/result/' + record.id;
+}
+
+/* ================= 诊断结果 ================= */
+function renderResult(view, resultId) {
+  const data = userData();
+  const r = (data.results || []).find(x => x.id === resultId);
+  if (!r) throw new Error('诊断记录不存在');
+  const course = state.courses.find(c => c.id === r.courseId);
+  const levelCls = r.score >= 75 ? 'level-good' : r.score >= 55 ? 'level-mid' : 'level-low';
+  const levelText = r.score >= 75 ? '掌握良好' : r.score >= 55 ? '有待加强' : '需要强化';
+  const ringColor = r.score >= 75 ? '#059669' : r.score >= 55 ? '#d97706' : '#dc2626';
+  const circumference = 2 * Math.PI * 62;
+  const weakList = (r.report.weakPoints || []).map((w, i) => `
+    <li><span class="path-index">${i + 1}</span><div style="flex:1"><div style="font-weight:600">${esc(w.name)} <span style="color:var(--red);font-weight:800">${w.score} 分</span></div><div class="path-reason">掌握度偏低${w.evidence ? `,基于 ${w.evidence} 道题判定` : ',尚未有足够答题数据'}</div></div><a class="btn btn-sm btn-secondary" href="#/practice/${r.courseId}/${w.id}">去练习</a></li>`).join('') || '<li style="border:none;color:var(--green)">🎉 暂无薄弱点</li>';
+  const pathList = (r.report.path || []).map((p, i) => `<li><span class="path-index">${i + 1}</span><div style="flex:1"><div style="font-weight:600">${esc(p.name)}</div><div class="path-reason">${esc(p.reason)}</div></div><a class="btn btn-sm btn-ghost" href="#/practice/${r.courseId}/${p.id}">练习</a></li>`).join('');
+  view.innerHTML = `
+    <div style="max-width:980px;margin:0 auto">
+      <div class="card result-hero">
+        <div class="score-ring"><svg width="150" height="150"><circle cx="75" cy="75" r="62" fill="none" stroke="#eef0f6" stroke-width="12"/><circle cx="75" cy="75" r="62" fill="none" stroke="${ringColor}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference * (1 - r.score / 100)}"/></svg><div class="score-text"><span class="num">${r.score}</span><span class="unit">总分 100</span></div></div>
+        <span class="level-pill ${levelCls}">${levelText}</span>
+        <div class="result-summary">${esc(r.report.summary || '')}</div>
+        <div style="margin-top:14px;font-size:12.5px;color:var(--muted)">${fmtTime(r.createdAt)} · ${esc(r.courseName)} · 答对 ${r.correctCount}/${r.totalCount} 题</div>
+        <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><a class="btn" href="#/practice/${r.courseId}">📝 开始针对性刷题</a><a class="btn btn-secondary" href="#/ai?course=${r.courseId}">🤖 AI 生成强化题</a><button class="btn btn-ghost" id="redo-btn">🔄 重新诊断</button></div>
+      </div>
+      <div class="section-title">🗺️ 知识点掌握图谱</div><div class="card" id="graph-box"></div>
+      <div class="section-title">🩹 薄弱知识点</div><ul class="path-list">${weakList}</ul>
+      <div class="section-title">🧭 个性化复习路径</div><div class="card"><ul class="path-list" style="margin-top:0">${pathList || '<li>暂无推荐路径,可先做一次练习</li>'}</ul></div>
+    </div>`;
+  document.getElementById('redo-btn').onclick = () => location.hash = '#/diagnostic/' + r.courseId;
+  renderKnowledgeGraph(document.getElementById('graph-box'), course, r.mastery, []);
+}
+
+/* ================= 练习 ================= */
+function renderPractice(view, courseId, kpId) {
+  const course = state.courses.find(c => c.id === courseId);
+  if (!course) throw new Error('课程不存在');
+  const pool = kpId ? course.questions.filter(q => q.kpIds.includes(kpId)) : course.questions;
+  if (!pool.length) { view.innerHTML = `<div class="empty"><div class="emoji">📭</div>该知识点暂无题目,试试 <a href="#/ai?course=${courseId}${kpId ? '&kp=' + kpId : ''}">AI 出题</a></div>`; return; }
+  const questions = shuffle(pool).slice(0, kpId ? 8 : 12).map(q => ({ ...q, selected: null, done: false }));
+  state.practice = { courseId, kpId, questions, index: 0 };
+  renderPracticeQuestion(view, course);
+}
+
+function renderPracticeQuestion(view, course) {
+  const p = state.practice;
+  const q = p.questions[p.index];
+  const doneCount = p.questions.filter(x => x.done).length;
+  const feedback = q.done ? `
+    <div class="feedback-box ${q.selected === q.correctIndex ? 'correct' : 'wrong'}">
+      <div class="fb-title">${q.selected === q.correctIndex ? '✅ 回答正确' : '❌ 回答错误'}</div>
+      <div>正确答案:${String.fromCharCode(65 + q.correctIndex)}. ${esc(q.options[q.correctIndex])}</div>
+      <div style="margin-top:8px;font-size:13.5px">${esc(q.explanation)}</div>
+      <div class="fb-actions"><button class="btn btn-sm btn-secondary" id="practice-next">${p.index === p.questions.length - 1 ? '完成练习' : '下一题 →'}</button><button class="btn btn-sm btn-ghost" id="practice-ai">🤖 问 AI 讲解</button></div>
+    </div>` : '';
+  view.innerHTML = `
+    <div class="practice-layout"><div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap"><a class="btn btn-sm btn-ghost" href="#/course/${p.courseId}">← ${course.icon} ${esc(course.name)}</a>${p.kpId ? `<span class="kp-tag">${esc(kpName(course, p.kpId))}</span>` : '<span class="kp-tag">综合练习</span>'}<span style="font-size:13px;color:var(--muted)">已答 ${doneCount}/${p.questions.length}</span></div>
+      <div class="card" style="padding:26px">
+        <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">第 ${p.index + 1} 题 · ${difficultyText(q.difficulty)}</div>
+        <div class="quiz-stem" style="margin-bottom:18px">${esc(q.stem)}</div>
+        ${q.options.map((opt, i) => {
+          let cls = 'option';
+          if (q.done) {
+            if (i === q.correctIndex) cls += ' reveal-correct';
+            if (i === q.selected && q.selected !== q.correctIndex) cls += ' wrong';
+          }
+          return `<div class="${cls}" data-index="${i}" ${q.done ? 'style="pointer-events:none"' : ''}><span class="opt-letter">${String.fromCharCode(65 + i)}.</span><span>${esc(opt)}</span></div>`;
+        }).join('')}
+        ${!q.done ? '<button class="btn btn-block" id="practice-submit" disabled>提交答案</button>' : feedback}
+      </div></div>
+      <div><div class="card" style="position:sticky;top:20px"><div style="font-weight:700;margin-bottom:12px">答题进度</div>
+        <div class="qnav">${p.questions.map((qq, i) => `<button class="${qq.done ? (qq.selected === qq.correctIndex ? 'done-correct' : 'done-wrong') : ''} ${i === p.index ? 'current' : ''}" data-i="${i}">${i + 1}</button>`).join('')}</div>
+        <div style="margin-top:14px;font-size:12.5px;color:var(--muted)">答错的题会计入薄弱知识点统计,建议结合 AI 出题做专项强化。</div></div></div>
+    </div>`;
+
+  if (!q.done) {
+    let selected = null;
+    view.querySelectorAll('.option').forEach(el => {
+      el.onclick = () => {
+        view.querySelectorAll('.option').forEach(x => x.classList.remove('selected'));
+        el.classList.add('selected');
+        selected = Number(el.dataset.index);
+        document.getElementById('practice-submit').disabled = false;
+      };
+    });
+    document.getElementById('practice-submit').onclick = () => {
+      q.selected = selected;
+      q.done = true;
+      recordPractice(q);
+      renderPracticeQuestion(view, course);
+    };
+  } else {
+    document.getElementById('practice-next').onclick = () => {
+      if (p.index === p.questions.length - 1) {
+        toast('练习完成!继续加油 💪', 'success');
+        location.hash = p.kpId ? '#/course/' + p.courseId : '#/dashboard';
+      } else { p.index++; renderPracticeQuestion(view, course); }
+    };
+    document.getElementById('practice-ai').onclick = () => location.hash = '#/tutor?course=' + p.courseId + '&q=' + encodeURIComponent(q.stem);
+  }
+  view.querySelectorAll('.qnav button').forEach(b => { b.onclick = () => { p.index = Number(b.dataset.i); renderPracticeQuestion(view, course); }; });
+}
+
+function recordPractice(q) {
+  const data = userData();
+  data.practice = data.practice || [];
+  data.practice.push({ questionId: q.id, selected: q.selected, correct: q.selected === q.correctIndex, kpIds: q.kpIds, answeredAt: new Date().toISOString() });
+  saveUserData(data);
+}
+
+/* ================= 历史 ================= */
+function renderHistory(view) {
+  const data = userData();
+  const results = (data.results || []).slice().sort((a, b) => b.id - a.id);
+  if (!results.length) {
+    view.innerHTML = `<div class="empty"><div class="emoji">📭</div>还没有诊断记录<br><a class="btn" style="margin-top:14px" href="#/courses">去完成第一次诊断</a></div>`;
+    return;
+  }
+  view.innerHTML = `<div class="card" style="padding:8px"><table class="table">
+    <thead><tr><th>课程</th><th>时间</th><th>得分</th><th>答题</th><th>薄弱点</th><th></th></tr></thead>
+    <tbody>${results.map(r => `<tr>
+      <td>${state.courses.find(c => c.id === r.courseId)?.icon || '📘'} ${esc(r.courseName)}</td>
+      <td style="color:var(--muted)">${fmtTime(r.createdAt)}</td>
+      <td><span class="mini-score" style="color:${r.score >= 75 ? 'var(--green)' : r.score >= 55 ? 'var(--amber)' : 'var(--red)'}">${r.score}</span></td>
+      <td>${r.correctCount}/${r.totalCount}</td>
+      <td style="max-width:260px">${(r.report.weakPoints || []).slice(0, 2).map(w => `<span class="kp-tag">${esc(w.name)}</span>`).join('') || '<span style="color:var(--muted)">无</span>'}</td>
+      <td><a class="btn btn-sm btn-secondary" href="#/result/${r.id}">查看报告</a></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ================= AI 出题 ================= */
+function renderAiPage(view) {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const preCourse = Number(params.get('course') || 0);
+  const preKp = Number(params.get('kp') || 0);
+  view.innerHTML = `
+    <div class="ai-intro"><h3>🤖 DeepSeek 大模型实时出题</h3><p>选择课程、难度与数量,AI 依据课程大纲与薄弱知识点即时生成带详细解析的原创题目。首次使用请先在左下角"AI 设置"填入 API Key。</p></div>
+    <div class="card" style="margin-bottom:18px">
+      <div class="grid grid-4">
+        <div class="field"><label>课程</label><select class="select" id="ai-course">${state.courses.map(c => `<option value="${c.id}" ${c.id === preCourse ? 'selected' : ''}>${c.icon} ${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>知识点</label><select class="select" id="ai-kp"><option value="0">综合(自动选择)</option></select></div>
+        <div class="field"><label>难度</label><select class="select" id="ai-difficulty"><option value="easy">基础</option><option value="medium" selected>中等</option><option value="hard">较难</option></select></div>
+        <div class="field"><label>题数</label><select class="select" id="ai-count"><option value="1">1 题</option><option value="3" selected>3 题</option><option value="5">5 题</option></select></div>
+      </div>
+      <button class="btn" id="ai-generate" style="width:100%">⚡ 让 DeepSeek 生成题目</button>
+      ${!state.aiStatus.configured ? '<div style="margin-top:10px;font-size:12.5px;color:var(--amber)">⚠️ 尚未配置 DeepSeek API Key,当前返回内置演示题。点击左下角"AI 设置"填入 Key 后即为真实 DeepSeek 出题。</div>' : ''}
+    </div>
+    <div id="ai-result"><div class="empty"><div class="emoji">🎯</div>生成的题目会显示在这里</div></div>`;
+
+  const kpSelect = document.getElementById('ai-kp');
+  const refreshKps = () => {
+    const cid = Number(document.getElementById('ai-course').value);
+    const course = state.courses.find(c => c.id === cid);
+    kpSelect.innerHTML = '<option value="0">综合(自动选择)</option>' + (course.kps || []).map(k => `<option value="${k.id}" ${k.id === preKp ? 'selected' : ''}>${esc(k.name)}</option>`).join('');
+  };
+  document.getElementById('ai-course').onchange = refreshKps;
+  refreshKps();
+
+  document.getElementById('ai-generate').onclick = async () => {
+    const btn = document.getElementById('ai-generate');
+    const box = document.getElementById('ai-result');
+    btn.disabled = true; btn.textContent = '🤖 DeepSeek 生成中,约需 10-30 秒…';
+    box.innerHTML = '<div class="loading-block"><div class="spinner"></div>大模型正在为你出题,请稍候…</div>';
+    try {
+      const cid = Number(document.getElementById('ai-course').value);
+      const course = state.courses.find(c => c.id === cid);
+      const kpId = Number(kpSelect.value) || undefined;
+      const kpNameSel = kpId ? course.kps.find(k => k.id === kpId)?.name : undefined;
+      const questions = await DeepSeekClient.generateQuestions({
+        courseName: course.name, courseOutline: course.outline, kpName: kpNameSel,
+        difficulty: document.getElementById('ai-difficulty').value,
+        count: Number(document.getElementById('ai-count').value)
+      });
+      const data = userData();
+      data.ai = data.ai || [];
+      questions.forEach(q => data.ai.push({ ...q, courseId: cid, createdAt: new Date().toISOString() }));
+      saveUserData(data);
+      box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><div style="font-weight:700">🎉 生成完成 <span style="font-size:12px;color:var(--muted);font-weight:400">(deepseek-chat · DeepSeek)</span></div><button class="btn btn-sm btn-secondary" id="ai-regen">↻ 再生成一组</button></div><div id="ai-list">${questions.map(renderAiQuestionCard).join('')}</div>`;
+      document.getElementById('ai-regen').onclick = () => document.getElementById('ai-generate').click();
+      bindAiReveals(box);
+    } catch (e) {
+      box.innerHTML = `<div class="empty"><div class="emoji">⚠️</div><div>${esc(e.message)}</div></div>`;
+    } finally {
+      btn.disabled = false; btn.textContent = '⚡ 让 DeepSeek 生成题目';
+    }
+  };
+}
+
+function renderAiQuestionCard(q) {
+  const diff = q.difficulty || 'medium';
+  return `<div class="ai-question" data-correct-index="${q.correctIndex != null ? Number(q.correctIndex) : ''}">
+    <div class="ai-q-head"><div class="ai-q-tags"><span class="tag tag-kp">${esc(q.kpName || '综合')}</span><span class="tag tag-diff-${diff}">${difficultyText(diff)}</span><span class="tag" style="background:var(--brand-soft);color:var(--brand-dark)">AI 原创</span></div><button class="btn btn-sm btn-ghost ai-reveal">查看答案与解析</button></div>
+    <div class="ai-q-stem">${esc(q.stem)}</div>
+    ${(q.options || []).map((opt, i) => `<div class="ai-opt" data-i="${i}">${String.fromCharCode(65 + i)}. ${esc(opt)}</div>`).join('')}
+    <div class="ai-explain hidden"><b>💡 解析:</b> ${esc(q.explanation || '暂无解析')}</div></div>`;
+}
+
+function bindAiReveals(scope) {
+  scope.querySelectorAll('.ai-question').forEach(card => {
+    const btn = card.querySelector('.ai-reveal');
+    btn.onclick = () => {
+      const ci = card.dataset.correctIndex;
+      card.querySelectorAll('.ai-opt').forEach((o, i) => o.classList.toggle('correct-opt', ci !== '' && i === Number(ci)));
+      card.querySelector('.ai-explain').classList.remove('hidden');
+      btn.textContent = '已展示解析';
+      btn.disabled = true;
+    };
+  });
+}
+
+/* ================= AI 讲题 ================= */
+function renderTutorPage(view) {
+  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const preCourse = Number(params.get('course') || state.courses[0].id);
+  const preQ = params.get('q') || '';
+  const history = [];
+  view.innerHTML = `
+    <div class="ai-intro"><h3>💬 AI 讲题 · 苏格拉底式引导</h3><p>不直接给答案,而是像学长学姐一样一步步提问引导你思考。贴入题目或描述疑问,开始对话。</p></div>
+    <div class="chat-layout"><div>
+      <div class="card" style="padding:14px"><div style="font-weight:700;font-size:13px;margin-bottom:10px">当前课程</div>
+        <div class="chat-courses">${state.courses.map(c => `<button class="course-opt ${c.id === preCourse ? 'active' : ''}" data-id="${c.id}">${c.icon} ${esc(c.name)}</button>`).join('')}</div>
+        <div class="socratic-note">💡 提问时尽量给出题目条件;卡住时可以告诉它"我实在想不出来,请逐步讲解"。</div></div></div>
+      <div class="chat-box"><div class="chat-msgs" id="chat-msgs"><div class="msg ai">你好,我是你的 AI 学习伙伴 👋<br>把题目或不懂的知识点发给我,我会引导你一步步想明白。</div></div>
+        <div class="chat-input-row"><textarea id="chat-input" placeholder="输入题目或问题,Enter 发送,Shift+Enter 换行"></textarea><button class="btn" id="chat-send">发送</button></div></div>
+    </div>`;
+  let currentCourse = preCourse;
+  view.querySelectorAll('.course-opt').forEach(b => {
+    b.onclick = () => { view.querySelectorAll('.course-opt').forEach(x => x.classList.remove('active')); b.classList.add('active'); currentCourse = Number(b.dataset.id); };
+  });
+  const msgs = document.getElementById('chat-msgs');
+  const input = document.getElementById('chat-input');
+  if (preQ) input.value = preQ;
+  const appendMsg = (text, role) => {
+    const div = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.textContent = text;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+  };
+  const doSend = async () => {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    appendMsg(text, 'user');
+    history.push({ role: 'user', content: text });
+    const loading = appendMsg('AI 思考中…', 'loading');
+    try {
+      const course = state.courses.find(c => c.id === currentCourse);
+      const reply = await DeepSeekClient.tutor({ courseName: course.name, question: '', history });
+      loading.remove();
+      appendMsg(reply, 'ai');
+      history.push({ role: 'assistant', content: reply });
+    } catch (e) {
+      loading.remove();
+      appendMsg('⚠️ ' + e.message, 'ai');
+    }
+  };
+  document.getElementById('chat-send').onclick = doSend;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
+}
+
+/* ================= 模拟卷 ================= */
+function renderMockExamPage(view) {
+  view.innerHTML = `
+    <div class="card exam-intro"><div class="big">📝</div><h2>AI 考前冲刺模拟卷</h2>
+      <p>选择课程与题数,DeepSeek 依据课程大纲自动组卷。建议完成诊断后再生成,AI 会更侧重你的薄弱知识点。</p>
+      <div class="exam-config">
+        <div class="grid grid-2"><div class="field"><label>课程</label><select class="select" id="exam-course">${state.courses.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>题数</label><select class="select" id="exam-count"><option value="5">5 题(快速)</option><option value="10" selected>10 题(标准)</option><option value="15">15 题(强化)</option></select></div></div>
+        <div class="field"><label>侧重薄弱点 <span style="font-weight:400;color:var(--muted)">(可选,默认自动)</span></label><div id="exam-kps" style="display:flex;gap:8px;flex-wrap:wrap"></div></div>
+        <button class="btn btn-block" id="exam-generate">✨ 生成模拟卷</button>
+        ${!state.aiStatus.configured ? '<div style="margin-top:10px;font-size:12.5px;color:var(--amber)">⚠️ 未配置 DeepSeek API Key,将生成内置演示卷。</div>' : ''}
+      </div></div>
+    <div id="exam-result" style="margin-top:18px"></div>`;
+  const kpBox = document.getElementById('exam-kps');
+  const refreshKps = () => {
+    const course = state.courses.find(c => c.id === Number(document.getElementById('exam-course').value));
+    kpBox.innerHTML = (course.kps || []).map(k => `<label style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;background:var(--gray-soft);padding:5px 10px;border-radius:999px;cursor:pointer"><input type="checkbox" value="${k.id}"> ${esc(k.name)}</label>`).join('');
+  };
+  document.getElementById('exam-course').onchange = refreshKps;
+  refreshKps();
+  document.getElementById('exam-generate').onclick = async () => {
+    const btn = document.getElementById('exam-generate');
+    const box = document.getElementById('exam-result');
+    btn.disabled = true; btn.textContent = '📝 组卷中,约需 15-40 秒…';
+    box.innerHTML = '<div class="loading-block"><div class="spinner"></div>DeepSeek 正在为你生成模拟卷…</div>';
+    try {
+      const cid = Number(document.getElementById('exam-course').value);
+      const course = state.courses.find(c => c.id === cid);
+      const kpIds = Array.from(document.querySelectorAll('#exam-kps input:checked')).map(i => Number(i.value));
+      const kpNames = kpIds.map(id => course.kps.find(k => k.id === id)?.name).filter(Boolean);
+      const questions = await DeepSeekClient.generateMockExam({ courseName: course.name, courseOutline: course.outline, kpNames, count: Number(document.getElementById('exam-count').value) });
+      box.innerHTML = `<div class="card" style="padding:8px 8px 18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 0;flex-wrap:wrap;gap:8px"><div style="font-weight:800;font-size:17px">📝 ${esc(course.name)} 考前模拟卷(${questions.length} 题)</div><button class="btn btn-sm btn-secondary" id="exam-regen">↻ 重出卷</button></div>
+        <div style="padding:0 16px">${questions.map(renderAiQuestionCard).join('')}</div></div>`;
+      document.getElementById('exam-regen').onclick = () => document.getElementById('exam-generate').click();
+      bindAiReveals(box);
+      box.scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+      box.innerHTML = `<div class="empty"><div class="emoji">⚠️</div><div>${esc(e.message)}</div></div>`;
+    } finally {
+      btn.disabled = false; btn.textContent = '✨ 生成模拟卷';
+    }
+  };
+}
+
+/* ================= 关于 ================= */
+function renderAbout(view) {
+  view.innerHTML = `
+    <div class="card" style="max-width:760px;margin:0 auto">
+      <h2 style="font-size:20px">📋 关于「智刷星」</h2>
+      <p style="color:var(--muted);font-size:14px;margin:10px 0 18px">灵感源自《创客竞赛选题设计报告》—— 智刷队(邓程浩 · 何志浩 · 赵临枫),华中科技大学未来技术学院创客训练营。</p>
+      <div class="grid grid-2">
+        <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🎯 项目初衷</div><p style="font-size:13px;color:var(--muted)">理工科专业课复习时"题目匮乏、缺乏针对性、遇到难题无人讲解",我们希望用 AI 打造每位同学专属的学习伙伴。</p></div>
+        <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🧠 核心机制</div><p style="font-size:13px;color:var(--muted)">知识图谱诊断薄弱点 → 个性化复习路径 → 专项刷题 → AI 苏格拉底式讲题,形成"诊断-练习-理解"闭环。</p></div>
+        <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🤖 AI 能力</div><p style="font-size:13px;color:var(--muted)">AI 出题、苏格拉底式讲题、考前模拟卷均由 DeepSeek 大模型实时生成,需在"AI 设置"中配置 API Key。</p></div>
+        <div class="card" style="padding:16px"><div style="font-weight:700;margin-bottom:6px">🔒 隐私说明</div><p style="font-size:13px;color:var(--muted)">纯静态站点,无服务器、无数据库:学习数据与 API Key 仅保存在你的浏览器中。</p></div>
+      </div>
+    </div>`;
+}
+
+/* ================= 工具 ================= */
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function difficultyText(d) { return ({ easy: '基础', medium: '中等', hard: '较难' })[d] || '中等'; }
+function fmtTime(iso) { return String(iso || '').replace('T', ' ').slice(0, 16); }
+function esc(str) { return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function toast(message, type) {
+  const root = document.getElementById('toast-root');
+  if (!root) return;
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type || '');
+  el.textContent = message;
+  root.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 350); }, 3000);
+}
+
+  </script>
+</body>
+</html>

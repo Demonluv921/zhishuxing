@@ -1,0 +1,18 @@
+{
+  "name": "zhishuxing",
+  "version": "1.0.0",
+  "description": "智刷星 - AI 专业课智能刷题平台(GitHub Pages 静态版 + 本地 Express 版)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "node static-src/build.js",
+    "test": "node static-src/test-static.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "node-fetch": "^2.7.0"
+  }
+}
