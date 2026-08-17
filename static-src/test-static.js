@@ -4,7 +4,7 @@ const vm = require('vm');
 const path = require('path');
 const webcrypto = require('crypto').webcrypto;
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'docs', 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '..', 'site', 'index.html'), 'utf8');
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 
 function makeEl() {
