@@ -4,7 +4,7 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const src = path.join(__dirname);
-const outDir = path.join(root, 'docs');
+const outDir = path.join(root, 'site');
 
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
